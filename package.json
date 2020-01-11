@@ -1,0 +1,25 @@
+{
+  "name": "orange-dragonfly-validator",
+  "version": "0.7.0",
+  "description": "Library for input parameters validation",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/charger88/orange-dragonfly-validator.git"
+  },
+  "keywords": [
+    "validation",
+    "parameters",
+    "nodejs",
+    "validator"
+  ],
+  "author": "Michael Kelner",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/charger88/orange-dragonfly-validator/issues"
+  },
+  "homepage": "https://github.com/charger88/orange-dragonfly-validator#readme"
+}
