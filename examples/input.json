@@ -2,6 +2,9 @@
   "my-integer": 1,
   "my-string": "Ho-ho-ho",
   "extra-property": "Test",
+  "type": {
+    "test": 12345
+  },
   "some-array": ["one", "two", "three"],
   "some-object": {
     "apple": {

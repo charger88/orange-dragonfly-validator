@@ -9,6 +9,9 @@ const rules = {
     "required": true,
     "type": "string"
   },
+  "type": {
+    "type": "object"
+  },
   "extra-property": {},
   "some-array": {
     "required": true,

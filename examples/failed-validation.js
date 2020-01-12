@@ -8,6 +8,9 @@ const rules = {
   "my-string": {
     "type": "integer"
   },
+  "type": {
+    "type": "array"
+  },
   "missing-property": {
     "required": true,
     "type": "integer"
