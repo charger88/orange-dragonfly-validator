@@ -6,6 +6,10 @@ class ValidationRulesException extends ValidationException {}
 
 const EMAIL_PATTERN = /^(([^<>()\[\]\.,;:\s@\"]+(\.[^<>()\[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i
 
+const RULES_SCHEMA = {
+
+}
+
 class Validator {
 
   rules = {}
@@ -16,7 +20,9 @@ class Validator {
 
   constructor (rules) {
     try {
-      // TODO Validate rules.
+      //const validator = new Validator(RULES_SCHEMA)
+      //validator.exception_mode = false
+      //validator.validate(input)
     } catch (e) {
       const err_msg = 'Validation rules are incorrect. See "info" parameter of exception for the details'
       const ex = new ValidationRulesException(err_msg)
@@ -27,20 +33,35 @@ class Validator {
   }
 
   process (rules, input, errors_prefix = '') {
-    for (let key in input) {
-      if (input.hasOwnProperty(key) && !rules.hasOwnProperty(key)) {
-        this.errors[errors_prefix + key] = ['Parameter not allowed']
-      }
+    let cloned_rules = Object.assign({}, rules)
+    let errors_key_prefix
+    for (let children_key in input) {
+      if (!input.hasOwnProperty(children_key)) continue
+      errors_key_prefix = `${errors_prefix}${children_key}`
+      if (cloned_rules.hasOwnProperty('#')) this.applyRule(cloned_rules['#'], children_key, `${errors_key_prefix}#key`)
+      if (cloned_rules.hasOwnProperty('*')) this.applyRule(cloned_rules['*'], input[children_key], `${errors_key_prefix}`)
     }
-    let rule
-    for (let key in rules) {
-      if (!rules.hasOwnProperty(key)) continue
-      rule = rules[key]
-      if (rule.hasOwnProperty('default') && !input.hasOwnProperty(key)) input[key] = rule['default']
-      if (input.hasOwnProperty(key)) {
-        this.applyRule(rule, input[key], errors_prefix + key)
-      } else if (rule['required']) {
-        this.errors[errors_prefix + key] = ['Parameter required']
+    if (this.constructor.getValueType(input) === 'object') {
+      if (rules.hasOwnProperty(':strict') ? rules[':strict'] : this.strict_mode) {
+        for (let key in input) {
+          if (input.hasOwnProperty(key) && !rules.hasOwnProperty(key)) {
+            this.errors[errors_prefix + key] = ['Parameter not allowed']
+          }
+        }
+      }
+      if (cloned_rules.hasOwnProperty('#')) delete cloned_rules['#']
+      if (cloned_rules.hasOwnProperty('*')) delete cloned_rules['*']
+      if (cloned_rules.hasOwnProperty(':strict')) delete cloned_rules[':strict']
+      let rule
+      for (let key in cloned_rules) {
+        if (!cloned_rules.hasOwnProperty(key)) continue
+        rule = cloned_rules[key]
+        if (rule.hasOwnProperty('default') && !input.hasOwnProperty(key)) input[key] = rule['default']
+        if (input.hasOwnProperty(key)) {
+          this.applyRule(rule, input[key], errors_prefix + key)
+        } else if (rule['required']) {
+          this.errors[errors_prefix + key] = ['Parameter required']
+        }
       }
     }
   }
@@ -113,20 +134,7 @@ class Validator {
       }
       if (rule['children']) {
         if ((value_type === 'object') || (value_type === 'array')) {
-          let children_rules = Object.assign({}, rule['children'])
-          let errors_key_prefix
-          for (let children_key in value) {
-            if (!value.hasOwnProperty(children_key)) continue
-            errors_key_prefix = `${errors_key}.${children_key}`
-            if (children_rules.hasOwnProperty('#')) this.applyRule(children_rules['#'], children_key, `${errors_key_prefix}#key`)
-            if (children_rules.hasOwnProperty('*')) this.applyRule(children_rules['*'], value[children_key], `${errors_key_prefix}`)
-          }
-          if (value_type === 'object') {
-            const tmp_children_rules = Object.assign({}, children_rules)
-            if (tmp_children_rules.hasOwnProperty('#')) delete tmp_children_rules['#']
-            if (tmp_children_rules.hasOwnProperty('*')) delete tmp_children_rules['*']
-            if (Object.keys(tmp_children_rules).length) this.process(tmp_children_rules, value, `${errors_key}.`)
-          }
+          this.process(rule['children'], value, `${errors_key}.`)
         } else {
           if (rule_type.filter(t => !['object', 'array'].includes(t)).length === 0) {
             const err_msg = 'Validation rules are incorrect. See "info" parameter of exception for the details'

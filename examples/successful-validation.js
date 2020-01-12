@@ -25,6 +25,7 @@ const rules = {
     "required": true,
     "type": "object",
     "children": {
+      ":strict": false,
       "#": {
         "type": "string",
         "pattern": /^([a-z]+)$/,
