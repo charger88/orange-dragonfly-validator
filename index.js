@@ -162,7 +162,7 @@ class Validator {
       } else if (value === null) {
         value_type = null
       }
-    } else if ((value_type === 'number') && (parseInt(value) === value)) {
+    } else if ((value_type === 'number') && Number.isInteger(value)) {
       value_type = 'integer'
     }
     return value_type
