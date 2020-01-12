@@ -46,7 +46,7 @@ const RULES_SCHEMA = {
       "default": {},
     }
   }
-};
+}
 
 const RULES_OPTIONS_SCHEMA = {
   "strict": {
@@ -118,9 +118,9 @@ class Validator {
 
   process (rules, input, errors_prefix = '') {
     let cloned_rules = Object.assign({}, rules)
-    this.constructor.normalizeRules(rules);
+    this.constructor.normalizeRules(rules)
     if (!this.internal_call) {
-      this.constructor.validateRules(rules);
+      this.constructor.validateRules(rules)
     }
     let errors_key_prefix
     for (let children_key in input) {
