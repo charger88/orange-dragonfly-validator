@@ -6,10 +6,6 @@ class ValidationRulesException extends ValidationException {}
 
 const EMAIL_PATTERN = /^(([^<>()\[\]\.,;:\s@\"]+(\.[^<>()\[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i
 
-const RULES_SCHEMA = {
-
-}
-
 class Validator {
 
   rules = {}
@@ -19,16 +15,6 @@ class Validator {
   errors = {}
 
   constructor (rules) {
-    try {
-      //const validator = new Validator(RULES_SCHEMA)
-      //validator.exception_mode = false
-      //validator.validate(input)
-    } catch (e) {
-      const err_msg = 'Validation rules are incorrect. See "info" parameter of exception for the details'
-      const ex = new ValidationRulesException(err_msg)
-      ex.info = e.info
-      throw ex
-    }
     this.rules = rules
   }
 
@@ -42,7 +28,7 @@ class Validator {
       if (cloned_rules.hasOwnProperty('*')) this.applyRule(cloned_rules['*'], input[children_key], `${errors_key_prefix}`)
     }
     if (this.constructor.getValueType(input) === 'object') {
-      if (rules.hasOwnProperty(':strict') ? rules[':strict'] : this.strict_mode) {
+      if (rules.hasOwnProperty('@') && rules['@'].hasOwnProperty('strict') ? rules['@']['strict'] : this.strict_mode) {
         for (let key in input) {
           if (input.hasOwnProperty(key) && !rules.hasOwnProperty(key)) {
             this.errors[errors_prefix + key] = ['Parameter not allowed']
@@ -51,7 +37,7 @@ class Validator {
       }
       if (cloned_rules.hasOwnProperty('#')) delete cloned_rules['#']
       if (cloned_rules.hasOwnProperty('*')) delete cloned_rules['*']
-      if (cloned_rules.hasOwnProperty(':strict')) delete cloned_rules[':strict']
+      if (cloned_rules.hasOwnProperty('@')) delete cloned_rules['@']
       let rule
       for (let key in cloned_rules) {
         if (!cloned_rules.hasOwnProperty(key)) continue
