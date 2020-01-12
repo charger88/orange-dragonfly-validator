@@ -6,20 +6,122 @@ class ValidationRulesException extends ValidationException {}
 
 const EMAIL_PATTERN = /^(([^<>()\[\]\.,;:\s@\"]+(\.[^<>()\[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i
 
+const RULES_SCHEMA = {
+  "@": {
+    "strict": false,
+  },
+  "#": {
+    "type": "string"
+  },
+  "*": {
+    "type": "object",
+    "children": {
+      "@": {
+        "strict": true,
+      },
+      "type": {
+        "type": ["array"],
+      },
+      "in": {
+        "type": ["array"],
+      },
+      "in:public": {
+        "type": ["array"],
+      },
+      "min": {
+        "type": ["integer"],
+      },
+      "max": {
+        "type": ["integer"],
+      },
+      "children": {
+        "type": ["object"],
+      },
+      "required": {
+        "type": ["boolean"],
+      },
+      "pattern": {
+        "type": ["object"],
+      },
+      "default": {},
+    }
+  }
+};
+
+const RULES_OPTIONS_SCHEMA = {
+  "strict": {
+    "type": ["boolean"]
+  }
+}
+
 class Validator {
 
   rules = {}
   strict_mode = true
   patch_mode = false
   exception_mode = true
+  internal_call = false
   errors = {}
 
   constructor (rules) {
     this.rules = rules
   }
 
+  static validationRulesError(err_msg, info){
+    const ex = new ValidationRulesException(`${err_msg}. See "info" parameter of exception for the details`)
+    ex.info = info
+    throw ex
+  }
+
+  static validateRules(rules) {
+    const cloned_rules = Object.assign({}, rules)
+    if (cloned_rules.hasOwnProperty('#')) {
+      cloned_rules['>>>#'] = cloned_rules['#']
+      delete cloned_rules['#']
+    }
+    if (cloned_rules.hasOwnProperty('*')) {
+      cloned_rules['>>>*'] = cloned_rules['*']
+      delete cloned_rules['*']
+    }
+    if (cloned_rules.hasOwnProperty('@')) {
+      try {
+        const validator = new Validator(RULES_OPTIONS_SCHEMA)
+        validator.strict_mode = true
+        validator.internal_call = true
+        validator.validate(cloned_rules['@'])
+      } catch (e) {
+        this.validationRulesError('Validation rules options are incorrect', e.info)
+      }
+      delete cloned_rules['@']
+    }
+    try {
+      const validator = new Validator(RULES_SCHEMA)
+      validator.strict_mode = false
+      validator.internal_call = true
+      validator.validate(cloned_rules)
+    } catch (e) {
+      this.validationRulesError('Validation rules are incorrect', e.info)
+    }
+  }
+
+  static normalizeRules(rules) {
+    for (let key in rules) {
+      if (!rules.hasOwnProperty(key)) continue
+      if (rules[key].hasOwnProperty('type')) {
+        rules[key]['type'] = rules[key]['type'] ? (typeof rules[key]['type'] !== 'object' ? [rules[key]['type']] : rules[key]['type']) : null
+        if (!!rules[key]['type']) {
+          if (rules[key]['type'].includes('number')) rules[key]['type'].push('integer')
+        }
+      }
+    }
+  }
+
   process (rules, input, errors_prefix = '') {
     let cloned_rules = Object.assign({}, rules)
+    this.constructor.normalizeRules(rules);
+    if (!this.internal_call) {
+      this.constructor.validateRules(rules);
+    }
     let errors_key_prefix
     for (let children_key in input) {
       if (!input.hasOwnProperty(children_key)) continue
@@ -83,12 +185,8 @@ class Validator {
       this.errors[errors_key] = []
     }
     let value_type = this.constructor.getValueType(value)
-    const rule_type = rule.hasOwnProperty('type') && rule['type']
-      ? (typeof rule['type'] !== 'object' ? [rule['type']] : rule['type'])
-      : null
-    if (rule_type && rule_type.includes('number')) rule_type.push('integer')
-    if ((rule_type !== null) && !rule_type.includes(value_type)) {
-      this.errors[errors_key].push(`Incorrect type: ${rule_type.join(' or ')} required, ${value_type} provided`)
+    if (rule.hasOwnProperty('type') && (rule['type'] !== null) && !rule['type'].includes(value_type)) {
+      this.errors[errors_key].push(`Incorrect type: ${rule['type'].join(' or ')} required, ${value_type} provided`)
       return
     }
     if (value !== null) {
@@ -98,10 +196,9 @@ class Validator {
           if (rule.hasOwnProperty('min') && (min_max_value < rule['min'])) this.errors[errors_key].push(`Minimal value (length) is ${rule['min']}. ${min_max_value} provided`)
           if (rule.hasOwnProperty('max') && (min_max_value > rule['max'])) this.errors[errors_key].push(`Maximal value (length) is ${rule['max']}. ${min_max_value} provided`)
         } else {
-          const err_msg = 'Validation rules are incorrect. See "info" parameter of exception for the details'
-          const ex = new ValidationRulesException(err_msg)
-          ex.info[errors_key] = `${value_type} can not be validated for "min" and "max"`
-          throw ex
+          const info = {}
+          info[errors_key] = `${value_type} can not be validated for "min" and "max"`
+          this.constructor.validationRulesError('Validation rules are incorrect', info)
         }
       }
       if (rule['in'] && !rule['in'].includes(value)) this.errors[errors_key].push('Value is not allowed' + (rule['in:public'] ? `. Allowed values are: "${(rule['in:public'] === true ? rule['in'] : rule['in:public']).join('", "')}"` : ''))
@@ -122,11 +219,10 @@ class Validator {
         if ((value_type === 'object') || (value_type === 'array')) {
           this.process(rule['children'], value, `${errors_key}.`)
         } else {
-          if (rule_type.filter(t => !['object', 'array'].includes(t)).length === 0) {
-            const err_msg = 'Validation rules are incorrect. See "info" parameter of exception for the details'
-            const ex = new ValidationRulesException(err_msg)
-            ex.info[errors_key] = `Can\'t validate children of type ${t}`
-            throw ex
+          if (rule['type'].filter(t => !['object', 'array'].includes(t)).length === 0) {
+            const info = {}
+            info[errors_key] = `Can\'t validate children of type ${value_type}`
+            this.constructor.validationRulesError('Validation rules are incorrect', info)
           }
         }
       }
