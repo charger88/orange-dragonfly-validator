@@ -60,7 +60,6 @@ class Validator {
 
   rules = {}
   strict_mode = true
-  patch_mode = false
   exception_mode = true
   internal_call = false
   errors = {}
@@ -267,7 +266,6 @@ class Validator {
 const validate = function (rules, input, options={}) {
   const validator = new Validator(rules)
   if (options.hasOwnProperty('strict')) validator.strict_mode = options['strict']
-  if (options.hasOwnProperty('patch')) validator.patch_mode = options['patch']
   if (options.hasOwnProperty('exception')) validator.exception_mode = options['exception']
   return validator.validate(input, options.hasOwnProperty('errors_prefix') ? options['errors_prefix'] : '')
 }
