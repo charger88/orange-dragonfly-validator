@@ -1,6 +1,6 @@
 {
   "name": "orange-dragonfly-validator",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Library for input parameters validation",
   "main": "index.js",
   "scripts": {
