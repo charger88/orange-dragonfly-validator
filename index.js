@@ -21,7 +21,7 @@ const RULES_SCHEMA = {
       },
       "type": {
         "type": ["array"],
-        "in": ["string", "number", "integer", "array", "object", "boolean"],
+        "in": ["string", "number", "integer", "array", "object", "boolean", "null"],
         "in:public": true
       },
       "in": {
@@ -162,7 +162,7 @@ class Validator {
       if (Array.isArray(value)) {
         value_type = 'array'
       } else if (value === null) {
-        value_type = null
+        value_type = 'null'
       }
     } else if ((value_type === 'number') && Number.isInteger(value)) {
       value_type = 'integer'

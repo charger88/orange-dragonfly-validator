@@ -1,5 +1,6 @@
 {
   "my-integer": 1,
+  "can-be-null": null,
   "my-string": "Ho-ho-ho",
   "extra-property": "Test",
   "type": {

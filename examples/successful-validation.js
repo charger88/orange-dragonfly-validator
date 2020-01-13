@@ -5,6 +5,9 @@ const rules = {
   "my-integer": {
     "type": "integer"
   },
+  "can-be-null": {
+    "type": ["integer", "null"]
+  },
   "my-string": {
     "required": true,
     "type": ["string"]

@@ -61,7 +61,7 @@ f({
 
 There is no required params in rule's definition.
 
-* __type__ (`string` or `array`): describes allowed types of the parameter. Allowed values: `string`, `number`, `integer`, `array`, `object`, `boolean`.
+* __type__ (`string` or `array`): describes allowed types of the parameter. Allowed values: `string`, `number`, `integer`, `array`, `object`, `boolean`, `null`.
 * __in__ (`array`): describes allowed values.
 * __in:public__ (`boolean` or `array`): if `true` error message of `in` property will have list of available values. If `array` is provided if will be provided in error message of `in` instead of `in` values. For example it may be used if some of available values is deprecated and should not be exposed to users.
 * __min__ (`integer`): minimal (length of) value (applicable for `integer`, `number`, `string` and `array` values).
