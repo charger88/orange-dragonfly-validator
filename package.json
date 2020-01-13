@@ -16,7 +16,11 @@
     "nodejs",
     "validator"
   ],
-  "author": "Michael Kelner",
+  "author": {
+    "name": "Michael Kelner",
+    "email": "mikhail.kelner@gmail.com",
+    "url": "https://michaelkelner.com/"
+  },
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/charger88/orange-dragonfly-validator/issues"
