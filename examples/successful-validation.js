@@ -7,26 +7,26 @@ const rules = {
   },
   "my-string": {
     "required": true,
-    "type": "string"
+    "type": ["string"]
   },
   "type": {
-    "type": "object"
+    "type": ["object"]
   },
   "extra-property": {},
   "some-array": {
     "required": true,
-    "type": "array",
+    "type": ["array"],
     "min": 1,
     "max": 10,
     "children": {
       "*": {
-        "type": "string"
+        "type": ["string"]
       }
     }
   },
   "some-object": {
     "required": true,
-    "type": "object",
+    "type": ["object"],
     "children": {
       "@": {
         "strict": false

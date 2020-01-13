@@ -21,6 +21,8 @@ const RULES_SCHEMA = {
       },
       "type": {
         "type": ["array"],
+        "in": ["string", "number", "integer", "array", "object", "boolean"],
+        "in:public": true
       },
       "in": {
         "type": ["array"],
@@ -34,9 +36,6 @@ const RULES_SCHEMA = {
       "max": {
         "type": ["integer"],
       },
-      "children": {
-        "type": ["object"],
-      },
       "required": {
         "type": ["boolean"],
       },
@@ -44,6 +43,9 @@ const RULES_SCHEMA = {
         "type": ["object"],
       },
       "default": {},
+      "children": {
+        "type": ["object"],
+      },
     }
   }
 }
@@ -201,7 +203,21 @@ class Validator {
           this.constructor.validationRulesError('Validation rules are incorrect', info)
         }
       }
-      if (rule['in'] && !rule['in'].includes(value)) this.errors[errors_key].push('Value is not allowed' + (rule['in:public'] ? `. Allowed values are: "${(rule['in:public'] === true ? rule['in'] : rule['in:public']).join('", "')}"` : ''))
+      if (rule['in']){
+        if (value_type === 'object'){
+          const info = {}
+          info[errors_key] = `"in" directive is not applicable for objects`
+          this.constructor.validationRulesError('Validation rules are incorrect', info)
+        } else if (value_type === 'array') {
+          if (value.filter(v=> !rule['in'].includes(v)).length) {
+            this.errors[errors_key].push('Some of provided values in array are not allowed' + (rule['in:public'] ? `. Allowed values are: "${(rule['in:public'] === true ? rule['in'] : rule['in:public']).join('", "')}"` : ''))
+          }
+        } else {
+          if (!rule['in'].includes(value)) {
+            this.errors[errors_key].push('Provided value is not allowed' + (rule['in:public'] ? `. Allowed values are: "${(rule['in:public'] === true ? rule['in'] : rule['in:public']).join('", "')}"` : ''))
+          }
+        }
+      }
       if (rule['pattern'] || rule['special']) {
         if (value_type !== 'string') {
           this.errors[errors_key].push(`Incorrect type for "pattern" filter`)
