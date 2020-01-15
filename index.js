@@ -230,7 +230,7 @@ class Validator {
             }
             // TODO URL, phone number, uuidV4, etc.
           }
-          if (rule['special']) {
+          if (rule['pattern']) {
             if (!rule['pattern'].test(value)) this.errors[errors_key].push(`Incorrect string format`)
           }
         }
