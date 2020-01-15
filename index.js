@@ -42,6 +42,9 @@ const RULES_SCHEMA = {
       "pattern": {
         "type": ["object"],
       },
+      "special": {
+        "type": ["string"],
+      },
       "default": {},
       "children": {
         "type": ["object"],
