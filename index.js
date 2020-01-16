@@ -28,7 +28,7 @@ const RULES_SCHEMA = {
         "type": ["array"],
       },
       "in:public": {
-        "type": ["array"],
+        "type": ["array", "boolean"],
       },
       "min": {
         "type": ["integer"],
