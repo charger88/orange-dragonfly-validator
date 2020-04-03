@@ -40,7 +40,7 @@ const RULES_SCHEMA = {
         "type": ["boolean"],
       },
       "pattern": {
-        "type": ["object"],
+        "type": ["object", "string"],
       },
       "special": {
         "type": ["string"],
@@ -231,7 +231,8 @@ class Validator {
             // TODO URL, phone number, uuidV4, etc.
           }
           if (rule['pattern']) {
-            if (!rule['pattern'].test(value)) this.errors[errors_key].push(`Incorrect string format`)
+            const expression = (typeof rule['pattern'] === 'string') ? new RegExp(rule['pattern']) : rule['pattern'];
+            if (!expression.test(value)) this.errors[errors_key].push(`Incorrect string format`)
           }
         }
       }
