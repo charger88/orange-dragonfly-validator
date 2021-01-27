@@ -199,7 +199,7 @@ class Validator {
         if (min_max_value !== null) {
           if (rule.hasOwnProperty('min') && (min_max_value < rule['min'])) this.errors[errors_key].push(`Minimal value (length) is ${rule['min']}. ${min_max_value} provided`)
           if (rule.hasOwnProperty('max') && (min_max_value > rule['max'])) this.errors[errors_key].push(`Maximal value (length) is ${rule['max']}. ${min_max_value} provided`)
-        } else {
+        } else if (!rule.hasOwnProperty('type') || (rule['type'] === null) || (rule['type'].length < 2)) {
           const info = {}
           info[errors_key] = `${value_type} can not be validated for "min" and "max"`
           this.constructor.validationRulesError('Validation rules are incorrect', info)
