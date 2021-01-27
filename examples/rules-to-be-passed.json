@@ -1,42 +1,54 @@
-const validate = require("./../index")
-const input = require("./input.json")
-
-const rules = {
+{
   "my-integer": {
     "type": "integer"
   },
   "can-be-null": {
-    "type": ["integer", "null"]
+    "required": true,
+    "type": [
+      "integer",
+      "null"
+    ],
+    "default": null
   },
   "my-string": {
     "required": true,
-    "type": ["string"]
+    "type": [
+      "string"
+    ]
   },
   "type": {
-    "type": ["object"]
+    "type": [
+      "object"
+    ]
   },
   "extra-property": {},
   "some-array": {
     "required": true,
-    "type": ["array"],
+    "type": [
+      "array"
+    ],
     "min": 1,
     "max": 10,
     "children": {
       "*": {
-        "type": ["string"]
+        "type": [
+          "string"
+        ]
       }
     }
   },
   "some-object": {
     "required": true,
-    "type": ["object"],
+    "type": [
+      "object"
+    ],
     "children": {
       "@": {
         "strict": false
       },
       "#": {
         "type": "string",
-        "pattern": /^([a-z]+)$/,
+        "pattern": "^([a-z]+)$"
       },
       "*": {
         "type": "object",
@@ -47,18 +59,13 @@ const rules = {
           },
           "type": {
             "required": true,
-            "in": ["fruit", "vegetable"]
+            "in": [
+              "fruit",
+              "vegetable"
+            ]
           }
         }
       }
     }
-  },
-
-};
-
-try {
-  validate(rules, input)
-  console.log("Validation passed")
-} catch (e) {
-  console.error("Validation failed", e.message, e.info)
+  }
 }
