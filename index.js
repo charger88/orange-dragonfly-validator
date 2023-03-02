@@ -21,7 +21,7 @@ const RULES_SCHEMA = {
       },
       "type": {
         "type": ["array"],
-        "in": ["string", "number", "integer", "array", "object", "boolean", "null"],
+        "in": ["string", "number", "integer", "array", "object", "boolean", "function", "null"],
         "in:public": true
       },
       "in": {
@@ -44,6 +44,12 @@ const RULES_SCHEMA = {
       },
       "special": {
         "type": ["string"],
+      },
+      "transform": {
+        "type": ["function"],
+      },
+      "apply_transformed": {
+        "type": ["boolean"],
       },
       "default": {},
       "children": {
@@ -131,7 +137,12 @@ class Validator {
       if (!input.hasOwnProperty(children_key)) continue
       errors_key_prefix = `${errors_prefix}${children_key}`
       if (cloned_rules.hasOwnProperty('#')) this.applyRule(cloned_rules['#'], children_key, `${errors_key_prefix}#key`)
-      if (cloned_rules.hasOwnProperty('*')) this.applyRule(cloned_rules['*'], input[children_key], `${errors_key_prefix}`)
+      if (cloned_rules.hasOwnProperty('*')) {
+        const processed_value = this.applyRule(cloned_rules['*'], input[children_key], `${errors_key_prefix}`)
+        if (cloned_rules['*'].apply_transformed) {
+          input[children_key] = processed_value
+        }
+      }
     }
     if (this.constructor.getValueType(input) === 'object') {
       if (rules.hasOwnProperty('@') && rules['@'].hasOwnProperty('strict') ? rules['@']['strict'] : this.strict_mode) {
@@ -150,7 +161,10 @@ class Validator {
         rule = cloned_rules[key]
         if (rule.hasOwnProperty('default') && !input.hasOwnProperty(key)) input[key] = rule['default']
         if (input.hasOwnProperty(key)) {
-          this.applyRule(rule, input[key], errors_prefix + key)
+          const processed_value = this.applyRule(rule, input[key], errors_prefix + key)
+          if (rule.apply_transformed) {
+            input[key] = processed_value
+          }
         } else if (rule['required']) {
           this.errors[errors_prefix + key] = ['Parameter required']
         }
@@ -184,14 +198,15 @@ class Validator {
     }
   }
 
-  applyRule (rule, value, errors_key) {
+  applyRule (rule, original_value, errors_key) {
     if (!this.errors.hasOwnProperty(errors_key)) {
       this.errors[errors_key] = []
     }
+    let value = rule.hasOwnProperty('transform') ? rule.transform(original_value) : original_value
     let value_type = this.constructor.getValueType(value)
     if (rule.hasOwnProperty('type') && (rule['type'] !== null) && !rule['type'].includes(value_type)) {
       this.errors[errors_key].push(`Incorrect type: ${rule['type'].join(' or ')} required, ${value_type} provided`)
-      return
+      return value
     }
     if (value !== null) {
       if (rule.hasOwnProperty('min') || rule.hasOwnProperty('max')) {
@@ -251,6 +266,7 @@ class Validator {
     if (this.errors[errors_key].length === 0) {
       delete this.errors[errors_key]
     }
+    return value
   }
 
   validate (input, errors_prefix = '') {

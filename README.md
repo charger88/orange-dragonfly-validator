@@ -75,3 +75,5 @@ There is no required params in rule's definition.
     * __%key%__ (rule object): rule for specific `object` key's value. Applicable for root of the schema as well (it is how you define rules).
     * __@__ (`object`): options. Applicable for root of the schema as well.
         * __strict__ (`boolean`): in strict mode validator does not allow in Input keys not defined in Rules (default is `true`, but it can also be overridden in `options` argument of `validate` function) 
+* __transform__ (`function`): transforms value for validation
+* __apply_transformed__ (`boolean`): if `true`, replaces original value with value returned by function provided as `transform` parameter
