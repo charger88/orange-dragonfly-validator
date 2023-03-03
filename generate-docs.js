@@ -5,18 +5,18 @@ if (!input_data) throw new Error('File doesn\'t contain valid JSON')
 
 function process_schema (data, prefix = '') {
   for (const [key, item] of Object.entries(data)) {
-    const types = item.hasOwnProperty('type') ? (typeof item.type === 'string' ? [item.type] : item.type) : []
-    const default_value = item.required && item.hasOwnProperty('default') ? ('`' + (typeof item.default === 'object' ? JSON.stringify(item.default) : item.default) + '`') : ''
-    const required = item.required && !item.hasOwnProperty('default')
+    const types = 'type' in item ? (typeof item.type === 'string' ? [item.type] : item.type) : []
+    const default_value = item.required && ('default' in item) ? ('`' + (typeof item.default === 'object' ? JSON.stringify(item.default) : item.default) + '`') : ''
+    const required = item.required && !('default' in item)
     const description = []
     if (required) description.push('Required')
-    if (item.children && item.children.hasOwnProperty('@')) description.push(item.children['@'].strict === false ? 'Non-described keys are allowed' : 'Only described keys are allowed')
+    if (item.children && ('@' in item.children)) description.push(item.children['@'].strict === false ? 'Non-described keys are allowed' : 'Only described keys are allowed')
     if (item.min) description.push(`Minimal ${types[0] === 'string' ? 'length' : 'value'} - ${item.min}`)
     if (item.max) description.push(`Maximal ${types[0] === 'string' ? 'length' : 'value'} - ${item.max}`)
-    let name = key;
+    let name = key
     if (prefix.length) {
       if (name === '@') {
-        continue;
+        continue
       } else if (name === '#') {
         name = `${prefix.slice(0, -1)} (keys)`
       } else {
@@ -25,7 +25,7 @@ function process_schema (data, prefix = '') {
     }
     if (item.pattern) description.push(`Pattern \`${item.pattern}\``)
     console.log(`| ${required ? ('__' + name + '__') : name} | ${types.join(', ')} | ${default_value} | ${description.length ? description.join('; ') : '...'} |`)
-    if (item.hasOwnProperty('children')) process_schema(item.children, `${name}.`)
+    if ('children' in item) process_schema(item.children, `${name}.`)
   }
 }
 
