@@ -77,3 +77,4 @@ There is no required params in rule's definition.
         * __strict__ (`boolean`): in strict mode validator does not allow in Input keys not defined in Rules (default is `true`, but it can also be overridden in `options` argument of `validate` function) 
 * __transform__ (`function`): transforms value for validation
 * __apply_transformed__ (`boolean`): if `true`, replaces original value with value returned by function provided as `transform` parameter
+* __per_type__ (`object`): custom rules for the specific type (makes sense if multiple types are allowed). Acceptable parameters: `in`, `in:public`, `min`, `max`, `pattern`, `special`, `transform`, `apply_transformed`, `children`

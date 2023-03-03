@@ -30,6 +30,45 @@ const RULES_SCHEMA = {
         in: ['string', 'number', 'integer', 'array', 'object', 'boolean', 'function', 'null'],
         'in:public': true
       },
+      per_type: {
+        '#': {
+          type: 'string',
+          in: ['string', 'number', 'integer', 'array', 'object', 'boolean', 'function', 'null'],
+          'in:public': true
+        },
+        '*': {
+          type: 'object',
+          children: {
+            in: {
+              type: ['array']
+            },
+            'in:public': {
+              type: ['array', 'boolean']
+            },
+            min: {
+              type: ['integer']
+            },
+            max: {
+              type: ['integer']
+            },
+            pattern: {
+              type: ['object', 'string']
+            },
+            special: {
+              type: ['string']
+            },
+            transform: {
+              type: ['function']
+            },
+            apply_transformed: {
+              type: ['boolean']
+            },
+            children: {
+              type: ['object']
+            }
+          }
+        }
+      },
       in: {
         type: ['array']
       },
@@ -201,15 +240,19 @@ class Validator {
     }
   }
 
-  applyRule (rule, original_value, errors_key) {
+  applyRule (original_rule, original_value, errors_key) {
     if (!(errors_key in this.errors)) {
       this.errors[errors_key] = []
     }
+    const rule = { ...original_rule }
     const value = 'transform' in rule ? rule.transform(original_value) : original_value
     const value_type = this.constructor.getValueType(value)
     if (('type' in rule) && (rule.type !== null) && !rule.type.includes(value_type)) {
       this.errors[errors_key].push(`Incorrect type: ${rule.type.join(' or ')} required, ${value_type} provided`)
       return value
+    }
+    if (('per_type' in rule) && rule.per_type && (value_type in rule.per_type)) {
+      Object.assign(rule, rule.per_type[value_type])
     }
     if (value !== null) {
       if (('min' in rule) || ('max' in rule)) {
