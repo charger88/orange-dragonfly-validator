@@ -1,6 +1,4 @@
-/* eslint-disable no-undef */
-
-const validate = require('../index')
+import { safeParse } from '../src/index'
 
 test.each([
   [5, 'integer', true],
@@ -51,7 +49,8 @@ test.each([
   [true, 'null', false],
   [{ v: 5 }, 'null', false],
   [[5], 'null', false],
-  [null, 'null', true]
-])('validation: %s is %s: %s', (val, type, res) => {
-  expect(validate({ val: { type } }, { val }, { exception: false })).toBe(res)
+  [null, 'null', true],
+] as [unknown, string, boolean][])('validation: %s is %s: %s', (val, type, res) => {
+  const result = safeParse({ val: { type: type as 'string' } }, { val })
+  expect(result.success).toBe(res)
 })

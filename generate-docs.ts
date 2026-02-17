@@ -1,16 +1,28 @@
-const fs = require('fs')
+import fs from 'fs'
+
+interface SchemaItem {
+  type?: string | string[]
+  required?: boolean
+  default?: unknown
+  min?: number
+  max?: number
+  pattern?: RegExp | string
+  children?: Record<string, SchemaItem>
+  [key: string]: unknown
+}
+
 if (process.argv.length !== 3) throw new Error('Please, provide input file')
-const input_data = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))
+const input_data: Record<string, SchemaItem> = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))
 if (!input_data) throw new Error('File doesn\'t contain valid JSON')
 
-function process_schema (data, prefix = '') {
+function process_schema(data: Record<string, SchemaItem>, prefix = '') {
   for (const [key, item] of Object.entries(data)) {
-    const types = 'type' in item ? (typeof item.type === 'string' ? [item.type] : item.type) : []
+    const types = 'type' in item ? (typeof item.type === 'string' ? [item.type] : (item.type || [])) : []
     const default_value = item.required && ('default' in item) ? ('`' + (typeof item.default === 'object' ? JSON.stringify(item.default) : item.default) + '`') : ''
     const required = item.required && !('default' in item)
-    const description = []
+    const description: string[] = []
     if (required) description.push('Required')
-    if (item.children && ('@' in item.children)) description.push(item.children['@'].strict === false ? 'Non-described keys are allowed' : 'Only described keys are allowed')
+    if (item.children && ('@' in item.children)) description.push((item.children['@'] as unknown as { strict: boolean }).strict === false ? 'Non-described keys are allowed' : 'Only described keys are allowed')
     if (item.min) description.push(`Minimal ${types[0] === 'string' ? 'length' : 'value'} - ${item.min}`)
     if (item.max) description.push(`Maximal ${types[0] === 'string' ? 'length' : 'value'} - ${item.max}`)
     let name = key
@@ -25,7 +37,7 @@ function process_schema (data, prefix = '') {
     }
     if (item.pattern) description.push(`Pattern \`${item.pattern}\``)
     console.log(`| ${required ? ('__' + name + '__') : name} | ${types.join(', ')} | ${default_value} | ${description.length ? description.join('; ') : '...'} |`)
-    if ('children' in item) process_schema(item.children, `${name}.`)
+    if ('children' in item && item.children) process_schema(item.children, `${name}.`)
   }
 }
 
