@@ -10,15 +10,12 @@ import { ODValidatorRule } from './rule'
 import { ErrorCode } from './error-codes'
 import { EMAIL_PATTERN, PHONE_PATTERN, US_PHONE_PATTERN, URL_PATTERN, UUID_PATTERN, IPV4_PATTERN, DATE_PATTERN, DATETIME_PATTERN, HEX_COLOR_PATTERN, SPECIAL_VALIDATORS, SPECIAL_MAX_LENGTHS } from './special-validators'
 import { isSafeKey } from './sanitize'
-import validate from './validate'
 import { parse, safeParse, validateSchema } from './parse'
 import { fromJsonSchema, toJsonSchema } from './json-schema'
 import { ODValidatorSchemaBuilder, ODValidatorPropertyBuilder } from './builder'
 
 /** @deprecated Use {@link parse} or {@link safeParse} instead. */
-export default validate
 export {
-  validate,
   parse,
   safeParse,
   validateSchema,

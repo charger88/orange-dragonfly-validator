@@ -1,4 +1,4 @@
-import { fromJsonSchema, toJsonSchema, ODValidator, validate } from '../src/index'
+import { fromJsonSchema, toJsonSchema, ODValidator, parse } from '../src/index'
 
 describe('fromJsonSchema', () => {
   test('converts basic object schema with types', () => {
@@ -330,10 +330,10 @@ describe('fromJsonSchema', () => {
       },
       required: ['name'],
     })
-    const result = validate(schema, { name: 'Alice', age: 25 }, { strict: false })
+    const result = parse(schema, { name: 'Alice', age: 25 }, { strictMode: false })
     expect(result).not.toBe(false)
     expect(() => {
-      validate(schema, {}, { strict: false })
+      parse(schema, {}, { strictMode: false })
     }).toThrow()
   })
 })
