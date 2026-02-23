@@ -4,11 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [1.0.0] - 2/23/2026
 
+### Added
+
+- Command for calculating test coverage
+
 ### Changed
 
 - Renamed classes from `ODV...` to `ODValidator...` to match naming of classes in other
 Orange Dragonfly libraries
 - Removed deprecated `validate` function (use `parse` and `safeParse` instead)
+
 
 ## [0.9.0] - 2/17/2026
 

@@ -35,6 +35,7 @@
     "generate-docs": "npx tsx generate-docs.ts",
     "build": "tsup",
     "test": "jest",
+    "test:coverage": "jest --coverage",
     "benchmark": "npx tsx tests/benchmark/run.ts",
     "eslint": "eslint ./src",
     "eslint:fix": "eslint --fix ./src",
