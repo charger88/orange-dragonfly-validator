@@ -1,8 +1,8 @@
-import { parse, safeParse, ODVSchemaBuilder, ODVValidator, ODVException } from '../src/index'
+import { parse, safeParse, ODValidatorSchemaBuilder, ODValidator, ODValidatorException } from '../src/index'
 
 // --- Basic usage ---
 
-const userSchema = ODVSchemaBuilder.create()
+const userSchema = ODValidatorSchemaBuilder.create()
   .property('name', p => p.required().string().min(1).max(100))
   .property('email', p => p.required().string().special('email'))
   .property('age', p => p.integer().min(0).max(150))
@@ -33,7 +33,7 @@ if (result.success) {
 
 // --- Nested schemas ---
 
-const apiSchema = ODVSchemaBuilder.create()
+const apiSchema = ODValidatorSchemaBuilder.create()
   .property('users', p => p.required().array().min(1)
     .children(c => c
       .wildcard(p => p.object()
@@ -66,14 +66,14 @@ try {
   }, { strictMode: false })
   console.log('API data validated:', JSON.stringify(data, null, 2))
 } catch (e) {
-  if (e instanceof ODVException) {
+  if (e instanceof ODValidatorException) {
     console.error('Validation failed:', e.info)
   }
 }
 
 // --- Multi-type with per-type rules ---
 
-const flexSchema = ODVSchemaBuilder.create()
+const flexSchema = ODValidatorSchemaBuilder.create()
   .property('value', p => p.string().number()
     .perType('string', p => p.min(1).max(255))
     .perType('number', p => p.min(0).max(99999)),
@@ -85,7 +85,7 @@ console.log('Number value:', parse(flexSchema, { value: 42 }, { strictMode: fals
 
 // --- Transform ---
 
-const formSchema = ODVSchemaBuilder.create()
+const formSchema = ODValidatorSchemaBuilder.create()
   .property('email', p => p.required().string().special('email')
     .transform(v => typeof v === 'string' ? v.toLowerCase().trim() : v)
     .applyTransformed(),
@@ -103,31 +103,31 @@ const formData = parse(formSchema, {
 console.log('Transformed:', formData)
 // { email: 'alice@example.com', score: 95 }
 
-// --- Passing ODVRules directly to parse ---
+// --- Passing ODValidatorRules directly to parse ---
 
-const contactRules = ODVSchemaBuilder.create()
+const contactRules = ODValidatorSchemaBuilder.create()
   .property('name', p => p.required().string().min(1))
   .property('phone', p => p.string().special('phone'))
   .complete()
 
-// parse() and safeParse() accept ODVRules directly — no .toSchema() needed
+// parse() and safeParse() accept ODValidatorRules directly — no .toSchema() needed
 const contact = parse(contactRules, {
   name: 'Alice',
   phone: '+12025551234',
 }, { strictMode: false })
-console.log('Contact (via ODVRules):', contact)
+console.log('Contact (via ODValidatorRules):', contact)
 
 const contactResult = safeParse(contactRules, { name: 'Bob' }, { strictMode: false })
-console.log('safeParse with ODVRules:', contactResult)
+console.log('safeParse with ODValidatorRules:', contactResult)
 
-// --- Using complete() with ODVValidator ---
+// --- Using complete() with ODValidator ---
 
-const rules = ODVSchemaBuilder.create()
+const rules = ODValidatorSchemaBuilder.create()
   .property('name', p => p.required().string())
   .property('age', p => p.integer().min(0))
   .complete()
 
-const validator = new ODVValidator(rules, { exceptionMode: false, strictMode: false })
+const validator = new ODValidator(rules, { exceptionMode: false, strictMode: false })
 
 if (validator.validate({ name: 'Alice', age: 25 })) {
   console.log('Valid data:', validator.data)

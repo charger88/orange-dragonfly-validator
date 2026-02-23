@@ -1,5 +1,5 @@
 import { parse, safeParse, ErrorCode } from '../src/index'
-import type { ODVRulesSchema } from '../src/index'
+import type { ODValidatorRulesSchema } from '../src/index'
 
 const opts = { strictMode: false } as const
 
@@ -15,7 +15,7 @@ describe('transform - basic', () => {
 
   test('transform does not mutate original input', () => {
     const input = { val: '5' }
-    safeParse({ val: { type: 'integer', transform: (v) => parseInt(v as string, 10) } } as ODVRulesSchema, input, opts)
+    safeParse({ val: { type: 'integer', transform: (v) => parseInt(v as string, 10) } } as ODValidatorRulesSchema, input, opts)
     expect(input.val).toBe('5')
   })
 
@@ -38,7 +38,7 @@ describe('transform - type coercion', () => {
   })
 
   test('string to boolean', () => {
-    const schema: ODVRulesSchema = { val: { type: 'boolean', transform: (v) => v === 'true' } }
+    const schema: ODValidatorRulesSchema = { val: { type: 'boolean', transform: (v) => v === 'true' } }
     expect(passes(schema, { val: 'true' })).toBe(true)
     expect(passes(schema, { val: 'false' })).toBe(true)
   })
@@ -48,7 +48,7 @@ describe('transform - type coercion', () => {
   })
 
   test('trim whitespace', () => {
-    const schema: ODVRulesSchema = { val: { type: 'string', transform: (v) => (v as string).trim(), min: 1 } }
+    const schema: ODValidatorRulesSchema = { val: { type: 'string', transform: (v) => (v as string).trim(), min: 1 } }
     expect(passes(schema, { val: '  hello  ' })).toBe(true)
     expect(passes(schema, { val: '   ' })).toBe(false)
   })
@@ -60,18 +60,18 @@ describe('transform - validation after transform', () => {
   })
 
   test('transform result is validated against min/max', () => {
-    const schema: ODVRulesSchema = { val: { type: 'integer', transform: (v) => (v as number) * 10, min: 50 } }
+    const schema: ODValidatorRulesSchema = { val: { type: 'integer', transform: (v) => (v as number) * 10, min: 50 } }
     expect(passes(schema, { val: 3 })).toBe(false)  // 30 < 50
     expect(passes(schema, { val: 6 })).toBe(true)   // 60 >= 50
   })
 
   test('transform result is validated against pattern', () => {
-    const schema: ODVRulesSchema = { val: { type: 'string', transform: (v) => (v as string).toLowerCase(), pattern: /^[a-z]+$/ } }
+    const schema: ODValidatorRulesSchema = { val: { type: 'string', transform: (v) => (v as string).toLowerCase(), pattern: /^[a-z]+$/ } }
     expect(passes(schema, { val: 'HELLO' })).toBe(true)
   })
 
   test('transform result is validated against in list', () => {
-    const schema: ODVRulesSchema = { val: { type: 'string', transform: (v) => (v as string).toLowerCase(), in: ['yes', 'no'] } }
+    const schema: ODValidatorRulesSchema = { val: { type: 'string', transform: (v) => (v as string).toLowerCase(), in: ['yes', 'no'] } }
     expect(passes(schema, { val: 'YES' })).toBe(true)
     expect(passes(schema, { val: 'MAYBE' })).toBe(false)
   })
@@ -101,7 +101,7 @@ describe('transform - apply_transformed', () => {
   })
 
   test('apply_transformed does not mutate original input', () => {
-    const schema: ODVRulesSchema = { val: { type: 'integer', transform: (v) => parseInt(v as string, 10), apply_transformed: true } }
+    const schema: ODValidatorRulesSchema = { val: { type: 'integer', transform: (v) => parseInt(v as string, 10), apply_transformed: true } }
     const input = { val: '42' }
     safeParse(schema, input, opts)
     expect(input.val).toBe('42')
@@ -136,7 +136,7 @@ describe('transform - with parse and safeParse', () => {
 
 describe('transform - with special validators', () => {
   test('transform before special validation', () => {
-    const schema: ODVRulesSchema = {
+    const schema: ODValidatorRulesSchema = {
       val: { type: 'string', special: 'email', transform: (v) => (v as string).toLowerCase().trim() },
     }
     expect(passes(schema, { val: '  User@Example.COM  ' })).toBe(true)
@@ -145,7 +145,7 @@ describe('transform - with special validators', () => {
 
 describe('transform - with children', () => {
   test('transform on field with children', () => {
-    const schema: ODVRulesSchema = {
+    const schema: ODValidatorRulesSchema = {
       val: {
         type: 'object',
         transform: (v) => typeof v === 'string' ? JSON.parse(v) : v,
@@ -160,7 +160,7 @@ describe('transform - with children', () => {
 
 describe('transform - wildcard with apply_transformed', () => {
   test('transform applied to array elements via wildcard', () => {
-    const schema: ODVRulesSchema = {
+    const schema: ODValidatorRulesSchema = {
       items: {
         type: 'array',
         children: {

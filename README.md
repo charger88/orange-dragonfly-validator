@@ -22,7 +22,7 @@ const data = parse(schema, input)
 - **Dual format** — ships ESM and CommonJS with full TypeScript declarations
 - **Structured errors** — machine-readable codes, human-readable messages, contextual parameters
 - **Nested validation** — recursive schemas for objects and arrays of any depth
-- **JSON Schema interop** — two-way conversion between ODV schemas and JSON Schema
+- **JSON Schema interop** — two-way conversion between ODValidator schemas and JSON Schema
 - **Built-in format validators** — email, URL, UUID, phone, IPv4, date, datetime, hex color
 - **Custom transforms** — transform values before or instead of validation
 
@@ -39,7 +39,7 @@ Requires Node.js 18 or later.
 ### `parse` — validate and throw on failure
 
 ```typescript
-import { parse, ODVException } from 'orange-dragonfly-validator'
+import { parse, ODValidatorException } from 'orange-dragonfly-validator'
 
 const schema = {
   name: { type: 'string', required: true, pattern: /^[A-Z][a-z]+$/ },
@@ -54,7 +54,7 @@ try {
     term_ends: 2021,
   })
 } catch (e) {
-  if (e instanceof ODVException) {
+  if (e instanceof ODValidatorException) {
     console.error(e.info)
     // { term_ends: ['Minimal value (length) is 2025. 2021 provided'] }
   }
@@ -70,17 +70,17 @@ const result = safeParse(schema, input)
 if (result.success) {
   console.log(result.data.name) // typed as string
 } else {
-  console.log(result.errors) // Record<string, ODVErrorEntry[]>
+  console.log(result.errors) // Record<string, ODValidatorErrorEntry[]>
 }
 ```
 
-### `ODVValidator` — class-based usage
+### `ODValidator` — class-based usage
 
 ```typescript
-import { ODVValidator, ODVRules } from 'orange-dragonfly-validator'
+import { ODValidator, ODValidatorRules } from 'orange-dragonfly-validator'
 
-const rules = new ODVRules(schema)
-const validator = new ODVValidator(rules, {
+const rules = new ODValidatorRules(schema)
+const validator = new ODValidator(rules, {
   strictMode: true,
   exceptionMode: true,
 })
@@ -109,7 +109,7 @@ A schema is a plain object mapping field names to rule definitions. No field in 
 | `special` | `string` | Built-in format validator name (see [Format Validators](#format-validators)) |
 | `transform` | `function` | `(value: unknown) => unknown` — transforms value before validation |
 | `apply_transformed` | `boolean` | If `true`, the transformed value replaces the original in output |
-| `children` | `ODVRulesSchema` | Nested schema for object properties or array elements |
+| `children` | `ODValidatorRulesSchema` | Nested schema for object properties or array elements |
 | `per_type` | `object` | Type-specific rule overrides (see [Per-Type Rules](#per-type-rules)) |
 
 ### Meta-Keys
@@ -184,12 +184,12 @@ const schema = {
 
 ## Schema Builder
 
-Use `ODVRules.create()` for fluent schema construction with full autocomplete:
+Use `ODValidatorRules.create()` for fluent schema construction with full autocomplete:
 
 ```typescript
-import { ODVRules, parse } from 'orange-dragonfly-validator'
+import { ODValidatorRules, parse } from 'orange-dragonfly-validator'
 
-const rules = ODVRules.create()
+const rules = ODValidatorRules.create()
   .property('name', p => p.required().string().min(1).max(100))
   .property('email', p => p.required().string().special('email'))
   .property('age', p => p.integer().min(0).max(150))
@@ -197,14 +197,14 @@ const rules = ODVRules.create()
   .strict()
   .complete()
 
-const validator = new ODVValidator(rules)
+const validator = new ODValidator(rules)
 validator.validate(input)
 ```
 
 The builder can also produce a raw schema for use with `parse` and `safeParse`:
 
 ```typescript
-const schema = ODVRules.create()
+const schema = ODValidatorRules.create()
   .property('name', p => p.required().string())
   .toSchema()
 
@@ -216,7 +216,7 @@ const data = parse(schema, input)
 Use `.children()` and `.wildcard()` for nested validation:
 
 ```typescript
-const rules = ODVRules.create()
+const rules = ODValidatorRules.create()
   .property('users', p => p.required().array().min(1)
     .children(c => c
       .wildcard(p => p.object()
@@ -242,7 +242,7 @@ const rules = ODVRules.create()
 Use `.perType()` or chain multiple type methods:
 
 ```typescript
-const rules = ODVRules.create()
+const rules = ODValidatorRules.create()
   .property('value', p => p.string().number()
     .perType('string', p => p.min(1).max(255))
     .perType('number', p => p.min(0).max(1000))
@@ -252,7 +252,7 @@ const rules = ODVRules.create()
 
 ### Builder API Reference
 
-**`ODVSchemaBuilder`** (returned by `ODVRules.create()`):
+**`ODValidatorSchemaBuilder`** (returned by `ODValidatorRules.create()`):
 
 | Method | Description |
 |--------|-------------|
@@ -260,10 +260,10 @@ const rules = ODVRules.create()
 | `.wildcard(configure)` | Set the `*` (all values) rule |
 | `.keyValidator(configure)` | Set the `#` (key name) validator |
 | `.strict(value?)` | Set strict mode (default `true`) |
-| `.toSchema()` | Return the built `ODVRulesSchema` |
-| `.complete()` | Return an `ODVRules` instance |
+| `.toSchema()` | Return the built `ODValidatorRulesSchema` |
+| `.complete()` | Return an `ODValidatorRules` instance |
 
-**`ODVPropertyBuilder`** (passed to configure callbacks):
+**`ODValidatorPropertyBuilder`** (passed to configure callbacks):
 
 | Method | Description |
 |--------|-------------|
@@ -278,15 +278,15 @@ const rules = ODVRules.create()
 | `.special(name)` | Set built-in format validator |
 | `.transform(fn)` | Set transform function |
 | `.applyTransformed()` | Replace original with transformed value |
-| `.children(configure)` | Set nested schema (receives `ODVSchemaBuilder`) |
+| `.children(configure)` | Set nested schema (receives `ODValidatorSchemaBuilder`) |
 | `.perType(type, configure)` | Set type-specific overrides |
 
 ## Type Inference
 
-Schemas declared with `as const` (or `as const satisfies ODVRulesSchema`) enable full type inference on validated data:
+Schemas declared with `as const` (or `as const satisfies ODValidatorRulesSchema`) enable full type inference on validated data:
 
 ```typescript
-import { parse, type ODVInfer, type ODVRulesSchema } from 'orange-dragonfly-validator'
+import { parse, type ODValidatorInfer, type ODValidatorRulesSchema } from 'orange-dragonfly-validator'
 
 const schema = {
   name: { type: 'string', required: true },
@@ -298,10 +298,10 @@ const schema = {
       '*': { type: 'string' },
     },
   },
-} as const satisfies ODVRulesSchema
+} as const satisfies ODValidatorRulesSchema
 
 // Extract the type without calling parse
-type UserInput = ODVInfer<typeof schema>
+type UserInput = ODValidatorInfer<typeof schema>
 // {
 //   name: string
 //   age?: number
@@ -388,14 +388,14 @@ Without `apply_transformed`, the transform is only used for validation — the o
 Every validation error includes a machine-readable code, a human-readable message, and contextual parameters:
 
 ```typescript
-interface ODVErrorEntry {
+interface ODValidatorErrorEntry {
   code: string                        // e.g. 'TYPE_MISMATCH'
   message: string                     // e.g. 'Incorrect type: string required, number provided'
   params?: Record<string, unknown>    // e.g. { expected: 'string', actual: 'number' }
 }
 
 // Errors are keyed by field path
-type ODVErrors = Record<string, ODVErrorEntry[]>
+type ODValidatorErrors = Record<string, ODValidatorErrorEntry[]>
 // e.g. { 'users.0.name': [{ code, message, params }] }
 ```
 
@@ -419,33 +419,33 @@ Error codes are available as the `ErrorCode` constant for programmatic compariso
 ### Exception Types
 
 ```typescript
-import { ODVException, ODVRulesException } from 'orange-dragonfly-validator'
+import { ODValidatorException, ODValidatorRulesException } from 'orange-dragonfly-validator'
 
-// ODVException — input validation failed (expected at runtime)
+// ODValidatorException — input validation failed (expected at runtime)
 try {
   parse(schema, badInput)
 } catch (e) {
-  if (e instanceof ODVException) {
-    e.details  // ODVErrors — full structured errors
+  if (e instanceof ODValidatorException) {
+    e.details  // ODValidatorErrors — full structured errors
     e.info     // Record<string, string[]> — simplified (field → messages)
     e.message  // 'Validation failed'
   }
 }
 
-// ODVRulesException — schema itself is invalid (programming error)
-// Extends ODVException. Thrown by parse, safeParse, and validateSchema.
+// ODValidatorRulesException — schema itself is invalid (programming error)
+// Extends ODValidatorException. Thrown by parse, safeParse, and validateSchema.
 ```
 
-`safeParse` catches `ODVException` and returns `{ success: false, errors }` instead — but still throws `ODVRulesException` since invalid schemas are programming errors.
+`safeParse` catches `ODValidatorException` and returns `{ success: false, errors }` instead — but still throws `ODValidatorRulesException` since invalid schemas are programming errors.
 
 ### Custom Error Messages
 
 Provide a `messageFormatter` to customize or localize error messages:
 
 ```typescript
-import { parse, type ODVMessageFormatter } from 'orange-dragonfly-validator'
+import { parse, type ODValidatorMessageFormatter } from 'orange-dragonfly-validator'
 
-const messageFormatter: ODVMessageFormatter = (code, params) => {
+const messageFormatter: ODValidatorMessageFormatter = (code, params) => {
   switch (code) {
     case 'REQUIRED': return 'This field is required'
     case 'TYPE_MISMATCH': return `Expected ${params.expected}, got ${params.actual}`
@@ -460,12 +460,12 @@ const data = parse(schema, input, { messageFormatter })
 
 ## JSON Schema Interop
 
-Convert between ODV schemas and JSON Schema (draft-07 / 2020-12):
+Convert between ODValidator schemas and JSON Schema (draft-07 / 2020-12):
 
 ```typescript
 import { fromJsonSchema, toJsonSchema } from 'orange-dragonfly-validator'
 
-// JSON Schema → ODV
+// JSON Schema → ODValidator
 const { schema, warnings } = fromJsonSchema({
   type: 'object',
   properties: {
@@ -476,7 +476,7 @@ const { schema, warnings } = fromJsonSchema({
 })
 // warnings lists any unsupported features that were skipped
 
-// ODV → JSON Schema
+// ODValidator → JSON Schema
 const jsonSchema = toJsonSchema(odvSchema)
 ```
 
@@ -490,16 +490,16 @@ const jsonSchema = toJsonSchema(odvSchema)
 
 ## Schema Validation
 
-Validate that a plain JSON object is a well-formed ODV schema (useful when schemas come from external sources):
+Validate that a plain JSON object is a well-formed ODValidator schema (useful when schemas come from external sources):
 
 ```typescript
 import { validateSchema } from 'orange-dragonfly-validator'
 
 try {
   const schema = validateSchema(jsonFromExternalSource)
-  // schema is now typed as ODVRulesSchema
+  // schema is now typed as ODValidatorRulesSchema
 } catch (e) {
-  // ODVRulesException — schema is malformed
+  // ODValidatorRulesException — schema is malformed
 }
 ```
 
@@ -509,39 +509,39 @@ try {
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `parse` | `parse<S>(schema, input, options?, errorsPrefix?): ODVInfer<S>` | Validate and return typed data. Throws `ODVException` on failure |
+| `parse` | `parse<S>(schema, input, options?, errorsPrefix?): ODValidatorInfer<S>` | Validate and return typed data. Throws `ODValidatorException` on failure |
 | `safeParse` | `safeParse<S>(schema, input, options?, errorsPrefix?): SafeParseResult<S>` | Like `parse` but returns `{ success, data }` or `{ success, errors }` instead of throwing |
-| `validateSchema` | `validateSchema(json): ODVRulesSchema` | Validates a JSON object is a well-formed schema. Throws `ODVRulesException` if not |
-| `fromJsonSchema` | `fromJsonSchema(jsonSchema): { schema, warnings }` | Convert JSON Schema to ODV schema |
-| `toJsonSchema` | `toJsonSchema(schema): JsonSchema` | Convert ODV schema to JSON Schema |
+| `validateSchema` | `validateSchema(json): ODValidatorRulesSchema` | Validates a JSON object is a well-formed schema. Throws `ODValidatorRulesException` if not |
+| `fromJsonSchema` | `fromJsonSchema(jsonSchema): { schema, warnings }` | Convert JSON Schema to ODValidator schema |
+| `toJsonSchema` | `toJsonSchema(schema): JsonSchema` | Convert ODValidator schema to JSON Schema |
 
 ### Classes
 
 | Class | Description |
 |-------|-------------|
-| `ODVValidator` | Core validator with `validate(input)` method, `data`/`errors` properties, and configurable `strictMode`/`exceptionMode` |
-| `ODVRules` | Schema container with static `validate()` and `normalize()` methods |
-| `ODVRule` | Single rule processor with `apply()` method |
-| `ODVException` | Validation failure error with `details` (structured) and `info` (simplified) |
-| `ODVRulesException` | Schema definition error (extends `ODVException`) |
+| `ODValidator` | Core validator with `validate(input)` method, `data`/`errors` properties, and configurable `strictMode`/`exceptionMode` |
+| `ODValidatorRules` | Schema container with static `validate()` and `normalize()` methods |
+| `ODValidatorRule` | Single rule processor with `apply()` method |
+| `ODValidatorException` | Validation failure error with `details` (structured) and `info` (simplified) |
+| `ODValidatorRulesException` | Schema definition error (extends `ODValidatorException`) |
 
 ### Types
 
 | Type | Description |
 |------|-------------|
-| `ODVInfer<S>` | Infers TypeScript type from a schema |
-| `SafeParseResult<S>` | Discriminated union: `{ success: true; data: ODVInfer<S> } \| { success: false; errors: ODVErrors }` |
-| `ODVRulesSchema` | Schema object type |
-| `ODVRuleSchema` | Single rule definition type |
-| `ODVPerTypeRuleSchema` | Per-type override rule type |
-| `ODVOptions` | Constructor options for `ODVValidator` |
-| `ODVErrors` | `Record<string, ODVErrorEntry[]>` |
-| `ODVErrorEntry` | `{ code: string; message: string; params?: Record<string, unknown> }` |
-| `ODVErrorCode` | Union of all error code string literals |
-| `ODVMessageFormatter` | `(code: ODVErrorCode, params: Record<string, unknown>) => string` |
-| `ODVValueType` | `'string' \| 'number' \| 'integer' \| 'array' \| 'object' \| 'boolean' \| 'function' \| 'null'` |
+| `ODValidatorInfer<S>` | Infers TypeScript type from a schema |
+| `SafeParseResult<S>` | Discriminated union: `{ success: true; data: ODValidatorInfer<S> } \| { success: false; errors: ODValidatorErrors }` |
+| `ODValidatorRulesSchema` | Schema object type |
+| `ODValidatorRuleSchema` | Single rule definition type |
+| `ODValidatorPerTypeRuleSchema` | Per-type override rule type |
+| `ODValidatorOptions` | Constructor options for `ODValidator` |
+| `ODValidatorErrors` | `Record<string, ODValidatorErrorEntry[]>` |
+| `ODValidatorErrorEntry` | `{ code: string; message: string; params?: Record<string, unknown> }` |
+| `ODValidatorErrorCode` | Union of all error code string literals |
+| `ODValidatorMessageFormatter` | `(code: ODValidatorErrorCode, params: Record<string, unknown>) => string` |
+| `ODValidatorValueType` | `'string' \| 'number' \| 'integer' \| 'array' \| 'object' \| 'boolean' \| 'function' \| 'null'` |
 | `JsonSchema` | JSON Schema type definition |
-| `FromJsonSchemaResult` | `{ schema: ODVRulesSchema; warnings: string[] }` |
+| `FromJsonSchemaResult` | `{ schema: ODValidatorRulesSchema; warnings: string[] }` |
 
 ## Architecture
 
@@ -552,16 +552,16 @@ Input + Schema
   parse() / safeParse()
       │
       ▼
-  ODVRules ─── normalizes schema (deep clone, type normalization)
+  ODValidatorRules ─── normalizes schema (deep clone, type normalization)
       │
       ▼
-  ODVValidator.process()
+  ODValidator.process()
       │
       ├── Apply wildcard ('*') rules to all values
       ├── Validate key names ('#') if defined
       ├── Apply defaults for missing fields
       ├── For each field:
-      │     └── ODVRule.applyRule()
+      │     └── ODValidatorRule.applyRule()
       │           ├── transform (if defined)
       │           ├── type check
       │           ├── per_type overrides (if matched)

@@ -1,11 +1,11 @@
-import type { ODVRulesSchema, ODVRuleSchema } from './types'
-import { ODVException } from './exceptions'
-import { ODVRule } from './rule'
-import { ODVValidator } from './validator'
+import type { ODValidatorRulesSchema, ODValidatorRuleSchema } from './types'
+import { ODValidatorException } from './exceptions'
+import { ODValidatorRule } from './rule'
+import { ODValidator } from './validator'
 import { RULES_SCHEMA, RULES_OPTIONS_SCHEMA } from './schemas'
 import { deepCloneSchema } from './clone'
 
-function normalizeRule(rule: ODVRuleSchema): void {
+function normalizeRule(rule: ODValidatorRuleSchema): void {
   if (rule && typeof rule === 'object') {
     if ('type' in rule) {
       rule.type = rule.type ? (typeof rule.type !== 'object' ? [rule.type] : rule.type) : null
@@ -17,7 +17,7 @@ function normalizeRule(rule: ODVRuleSchema): void {
     }
     if (rule.per_type) {
       for (const typeKey of Object.keys(rule.per_type)) {
-        normalizeRule(rule.per_type[typeKey] as ODVRuleSchema)
+        normalizeRule(rule.per_type[typeKey] as ODValidatorRuleSchema)
       }
     }
     if (rule.children) {
@@ -26,20 +26,20 @@ function normalizeRule(rule: ODVRuleSchema): void {
   }
 }
 
-function normalizeSchema(schema: ODVRulesSchema): void {
+function normalizeSchema(schema: ODValidatorRulesSchema): void {
   for (const key of Object.keys(schema)) {
     if (key === '@') continue
-    normalizeRule(schema[key] as ODVRuleSchema)
+    normalizeRule(schema[key] as ODValidatorRuleSchema)
   }
 }
 
 /**
  * Wraps a rules schema and provides static utilities for schema validation and normalization.
  */
-export class ODVRules<S extends ODVRulesSchema = ODVRulesSchema> {
+export class ODValidatorRules<S extends ODValidatorRulesSchema = ODValidatorRulesSchema> {
   readonly schema: S
   /** @internal Pre-normalized schema, computed once at construction time. */
-  readonly normalizedSchema: ODVRulesSchema
+  readonly normalizedSchema: ODValidatorRulesSchema
   private _validated = false
 
   /** Whether this schema has already been validated. */
@@ -47,21 +47,21 @@ export class ODVRules<S extends ODVRulesSchema = ODVRulesSchema> {
     return this._validated
   }
 
-  /** @internal Mark this schema as validated. Used by ODVValidator. */
+  /** @internal Mark this schema as validated. Used by ODValidator. */
   markValidated(): void {
     this._validated = true
   }
 
   constructor(schema: S) {
     this.schema = schema
-    this.normalizedSchema = ODVRules.normalize(schema)
+    this.normalizedSchema = ODValidatorRules.normalize(schema)
   }
 
   /**
    * Validates that a rules schema is well-formed (correct types, known options, etc.).
-   * @throws {ODVRulesException} If the schema is invalid.
+   * @throws {ODValidatorRulesException} If the schema is invalid.
    */
-  static validate(rules: ODVRulesSchema): void {
+  static validate(rules: ODValidatorRulesSchema): void {
     const clonedRules: Record<string, unknown> = { ...rules }
     if ('#' in clonedRules) {
       clonedRules['>>>#'] = clonedRules['#']
@@ -73,20 +73,20 @@ export class ODVRules<S extends ODVRulesSchema = ODVRulesSchema> {
     }
     if ('@' in clonedRules) {
       try {
-        const validatorRules = new ODVRules(RULES_OPTIONS_SCHEMA as ODVRulesSchema)
-        const validator = ODVValidator.createInternal(validatorRules, { strictMode: true })
+        const validatorRules = new ODValidatorRules(RULES_OPTIONS_SCHEMA as ODValidatorRulesSchema)
+        const validator = ODValidator.createInternal(validatorRules, { strictMode: true })
         validator.validate(clonedRules['@'] as Record<string, unknown>)
       } catch (e) {
-        ODVRule.validationRulesError('Validation rules options are incorrect', (e as ODVException).details)
+        ODValidatorRule.validationRulesError('Validation rules options are incorrect', (e as ODValidatorException).details)
       }
       delete clonedRules['@']
     }
     try {
-      const validatorRules = new ODVRules(RULES_SCHEMA as ODVRulesSchema)
-      const validator = ODVValidator.createInternal(validatorRules, { strictMode: false })
+      const validatorRules = new ODValidatorRules(RULES_SCHEMA as ODValidatorRulesSchema)
+      const validator = ODValidator.createInternal(validatorRules, { strictMode: false })
       validator.validate(clonedRules as Record<string, unknown>)
     } catch (e) {
-      ODVRule.validationRulesError('Validation rules are incorrect', (e as ODVException).details)
+      ODValidatorRule.validationRulesError('Validation rules are incorrect', (e as ODValidatorException).details)
     }
   }
 
@@ -94,7 +94,7 @@ export class ODVRules<S extends ODVRulesSchema = ODVRulesSchema> {
    * Returns a deep-cloned, normalized copy of the schema.
    * Normalization converts single-type strings to arrays and adds `"integer"` when `"number"` is present.
    */
-  static normalize(rules: ODVRulesSchema): ODVRulesSchema {
+  static normalize(rules: ODValidatorRulesSchema): ODValidatorRulesSchema {
     const cloned = deepCloneSchema(rules)
     normalizeSchema(cloned)
     return cloned

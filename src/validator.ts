@@ -1,10 +1,10 @@
-import type { ODVRulesSchema, ODVRuleSchema, ODVOptions, ODVErrors } from './types'
-import type { ODVErrorCode, ODVMessageFormatter } from './error-codes'
+import type { ODValidatorRulesSchema, ODValidatorRuleSchema, ODValidatorOptions, ODValidatorErrors } from './types'
+import type { ODValidatorErrorCode, ODValidatorMessageFormatter } from './error-codes'
 import type { JsonSchema } from './json-schema'
 import { ErrorCode, DEFAULT_MESSAGES } from './error-codes'
-import { ODVException } from './exceptions'
-import { ODVRule } from './rule'
-import { ODVRules } from './rules'
+import { ODValidatorException } from './exceptions'
+import { ODValidatorRule } from './rule'
+import { ODValidatorRules } from './rules'
 import { fromJsonSchema } from './json-schema'
 import { isSafeKey } from './sanitize'
 
@@ -14,7 +14,7 @@ interface ResolvedOptions {
   strictMode: boolean
   exceptionMode: boolean
   internalCall: boolean
-  messageFormatter?: ODVMessageFormatter
+  messageFormatter?: ODValidatorMessageFormatter
 }
 
 const DEFAULT_OPTIONS: ResolvedOptions = {
@@ -28,24 +28,24 @@ const DEFAULT_OPTIONS: ResolvedOptions = {
  *
  * @example
  * ```ts
- * const rules = new ODVRules({ name: { type: 'string', required: true } })
- * const validator = new ODVValidator(rules)
+ * const rules = new ODValidatorRules({ name: { type: 'string', required: true } })
+ * const validator = new ODValidator(rules)
  * validator.validate({ name: 'Alice' }) // true
  * validator.data // { name: 'Alice' }
  * ```
  */
-export class ODVValidator {
-  readonly rules: ODVRules
+export class ODValidator {
+  readonly rules: ODValidatorRules
   private _options: ResolvedOptions
   /** Validation errors from the last {@link validate} call, keyed by field name. */
-  errors: ODVErrors
+  errors: ODValidatorErrors
   private _processedData: Record<string, unknown> | unknown[] | null = null
 
   /**
-   * @param rules - Pre-constructed {@link ODVRules} instance containing the validation schema.
+   * @param rules - Pre-constructed {@link ODValidatorRules} instance containing the validation schema.
    * @param options - Optional configuration (strict mode, exception mode, message formatter).
    */
-  constructor(rules: ODVRules, options: ODVOptions = {}) {
+  constructor(rules: ODValidatorRules, options: ODValidatorOptions = {}) {
     this.rules = rules
     this._options = { ...DEFAULT_OPTIONS, ...options }
     this.errors = {}
@@ -58,15 +58,15 @@ export class ODVValidator {
    * @param options - Optional validator configuration.
    * @returns The validator instance and any conversion warnings.
    */
-  static fromJsonSchema(jsonSchema: JsonSchema, options: ODVOptions = {}): { validator: ODVValidator, warnings: string[] } {
+  static fromJsonSchema(jsonSchema: JsonSchema, options: ODValidatorOptions = {}): { validator: ODValidator, warnings: string[] } {
     const { schema, warnings } = fromJsonSchema(jsonSchema)
-    const validator = new ODVValidator(new ODVRules(schema), options)
+    const validator = new ODValidator(new ODValidatorRules(schema), options)
     return { validator, warnings }
   }
 
   /** @internal Used by the library itself to skip rules validation and input cloning. */
-  static createInternal(rules: ODVRules, options: Omit<ODVOptions, 'internalCall'>): ODVValidator {
-    const instance = new ODVValidator(rules, options)
+  static createInternal(rules: ODValidatorRules, options: Omit<ODValidatorOptions, 'internalCall'>): ODValidator {
+    const instance = new ODValidator(rules, options)
     instance._options.internalCall = true
     return instance
   }
@@ -96,7 +96,7 @@ export class ODVValidator {
 
   private addError(
     errKey: string,
-    code: ODVErrorCode,
+    code: ODValidatorErrorCode,
     params: Record<string, unknown>,
   ): void {
     if (!Object.hasOwn(this.errors, errKey)) {
@@ -110,14 +110,14 @@ export class ODVValidator {
   }
 
   private processWildcards(
-    workingRules: ODVRulesSchema,
+    workingRules: ODValidatorRulesSchema,
     data: Record<string, unknown> | unknown[],
     errorsPrefix: string,
-    processChildren: (rules: ODVRulesSchema, input: Record<string, unknown>, prefix: string) => void,
+    processChildren: (rules: ODValidatorRulesSchema, input: Record<string, unknown>, prefix: string) => void,
   ): void {
     const messageFormatter = this._options.messageFormatter
-    const hashRule = workingRules['#'] as ODVRuleSchema | undefined
-    const starRule = workingRules['*'] as ODVRuleSchema | undefined
+    const hashRule = workingRules['#'] as ODValidatorRuleSchema | undefined
+    const starRule = workingRules['*'] as ODValidatorRuleSchema | undefined
     if (!hashRule && !starRule) return
     const isArray = Array.isArray(data)
     const keys = Object.keys(data)
@@ -126,12 +126,12 @@ export class ODVValidator {
       if (!isArray && !isSafeKey(dataKey)) continue
       const errKeyPrefix = errorsPrefix + dataKey
       if (hashRule) {
-        ODVRule.applyRule(hashRule, dataKey, errKeyPrefix + '#key', this.errors, processChildren, messageFormatter)
+        ODValidatorRule.applyRule(hashRule, dataKey, errKeyPrefix + '#key', this.errors, processChildren, messageFormatter)
       }
       if (starRule) {
         const idx = isArray ? i : undefined
         const currentValue = idx !== undefined ? (data as unknown[])[idx] : (data as Record<string, unknown>)[dataKey]
-        const processedValue = ODVRule.applyRule(starRule, currentValue, errKeyPrefix, this.errors, processChildren, messageFormatter)
+        const processedValue = ODValidatorRule.applyRule(starRule, currentValue, errKeyPrefix, this.errors, processChildren, messageFormatter)
         if (starRule.apply_transformed) {
           if (idx !== undefined) {
             (data as unknown[])[idx] = processedValue
@@ -144,7 +144,7 @@ export class ODVValidator {
   }
 
   private enforceStrictMode(
-    workingRules: ODVRulesSchema,
+    workingRules: ODValidatorRulesSchema,
     data: Record<string, unknown>,
     errorsPrefix: string,
   ): void {
@@ -167,19 +167,19 @@ export class ODVValidator {
   }
 
   private processNamedRules(
-    workingRules: ODVRulesSchema,
+    workingRules: ODValidatorRulesSchema,
     data: Record<string, unknown>,
     errorsPrefix: string,
-    processChildren: (rules: ODVRulesSchema, input: Record<string, unknown>, prefix: string) => void,
+    processChildren: (rules: ODValidatorRulesSchema, input: Record<string, unknown>, prefix: string) => void,
   ): void {
     const messageFormatter = this._options.messageFormatter
     for (const key of Object.keys(workingRules)) {
       if (key === '@' || key === '#' || key === '*') continue
-      const ruleSchema = workingRules[key] as ODVRuleSchema
+      const ruleSchema = workingRules[key] as ODValidatorRuleSchema
       if (!isSafeKey(key)) continue
       if (ruleSchema.default !== undefined && !Object.hasOwn(data, key)) data[key] = ruleSchema.default
       if (Object.hasOwn(data, key)) {
-        const processedValue = ODVRule.applyRule(ruleSchema, data[key], errorsPrefix + key, this.errors, processChildren, messageFormatter)
+        const processedValue = ODValidatorRule.applyRule(ruleSchema, data[key], errorsPrefix + key, this.errors, processChildren, messageFormatter)
         if (ruleSchema.apply_transformed) {
           data[key] = processedValue
         }
@@ -190,8 +190,8 @@ export class ODVValidator {
   }
 
   /** @internal Core processing logic. Operates on already-normalized rules, no cloning. */
-  private processRules(rules: ODVRulesSchema, input: Record<string, unknown> | unknown[], errorsPrefix: string): Record<string, unknown> | unknown[] {
-    const processChildren = (childRules: ODVRulesSchema, childInput: Record<string, unknown>, prefix: string): void => {
+  private processRules(rules: ODValidatorRulesSchema, input: Record<string, unknown> | unknown[], errorsPrefix: string): Record<string, unknown> | unknown[] {
+    const processChildren = (childRules: ODValidatorRulesSchema, childInput: Record<string, unknown>, prefix: string): void => {
       const childData = this.processRules(childRules, childInput, prefix)
       Object.assign(childInput, childData)
     }
@@ -211,10 +211,10 @@ export class ODVValidator {
    * @param errorsPrefix - Optional prefix prepended to error keys (useful for nested validation).
    * @returns A shallow copy of the input with defaults applied and transforms executed.
    */
-  process(rules: ODVRulesSchema, input: Record<string, unknown>, errorsPrefix = ''): Record<string, unknown> | unknown[] {
-    const workingRules = ODVRules.normalize(rules)
+  process(rules: ODValidatorRulesSchema, input: Record<string, unknown>, errorsPrefix = ''): Record<string, unknown> | unknown[] {
+    const workingRules = ODValidatorRules.normalize(rules)
     if (!this._options.internalCall) {
-      ODVRules.validate(workingRules)
+      ODValidatorRules.validate(workingRules)
     }
     const data = this._options.internalCall ? input : (Array.isArray(input) ? [...input] : { ...input })
     return this.processRules(workingRules, data, errorsPrefix)
@@ -227,20 +227,20 @@ export class ODVValidator {
    * @param input - The input data to validate.
    * @param errorsPrefix - Optional prefix prepended to error keys (useful for nested validation).
    * @returns `true` if valid, `false` if invalid (when exception mode is off).
-   * @throws {ODVException} If invalid and exception mode is on.
+   * @throws {ODValidatorException} If invalid and exception mode is on.
    */
   validate(input: Record<string, unknown>, errorsPrefix = ''): boolean {
     this.errors = {}
     this._processedData = null
     if (!this._options.internalCall && !this.rules.isValidated) {
-      ODVRules.validate(this.rules.normalizedSchema)
+      ODValidatorRules.validate(this.rules.normalizedSchema)
       this.rules.markValidated()
     }
     const data = this._options.internalCall ? input : Array.isArray(input) ? [...input] : { ...input }
     this._processedData = this.processRules(this.rules.normalizedSchema, data, errorsPrefix)
     if (Object.keys(this.errors).length) {
       if (this._options.exceptionMode) {
-        throw new ODVException('Validation failed', this.errors)
+        throw new ODValidatorException('Validation failed', this.errors)
       }
       return false
     }

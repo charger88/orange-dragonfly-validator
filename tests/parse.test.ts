@@ -1,4 +1,4 @@
-import { parse, safeParse, validateSchema, ODVException, ODVRulesException } from '../src/index'
+import { parse, safeParse, validateSchema, ODValidatorException, ODValidatorRulesException } from '../src/index'
 
 const opts = { strictMode: false } as const
 
@@ -11,7 +11,7 @@ describe('parse', () => {
   test('parse throws on validation failure', () => {
     expect(() => {
       parse({ name: { type: 'string' as const, required: true } }, {}, opts)
-    }).toThrow(ODVException)
+    }).toThrow(ODValidatorException)
   })
 
   test('parse applies defaults in returned data', () => {
@@ -101,7 +101,7 @@ describe('safeParse', () => {
   test('safeParse still throws for rules errors', () => {
     expect(() => {
       safeParse({ val: { type: 'invalid_type' as 'string' } }, { val: 'test' }, opts)
-    }).toThrow(ODVRulesException)
+    }).toThrow(ODValidatorRulesException)
   })
 
   test('safeParse applies defaults in returned data', () => {
@@ -162,7 +162,7 @@ describe('parse with arrays', () => {
         },
         { 'my-array': ['not', 'integers'] },
       )
-    }).toThrow(ODVException)
+    }).toThrow(ODValidatorException)
   })
 
   test('parse validates array with min/max constraints', () => {
@@ -193,7 +193,7 @@ describe('parse with arrays', () => {
         },
         { 'some-array': [1, 2] },
       )
-    }).toThrow(ODVException)
+    }).toThrow(ODValidatorException)
   })
 
   test('parse throws when array length above max', () => {
@@ -208,7 +208,7 @@ describe('parse with arrays', () => {
         },
         { 'some-array': [1, 2, 3, 4] },
       )
-    }).toThrow(ODVException)
+    }).toThrow(ODValidatorException)
   })
 
   test('parse with empty array', () => {

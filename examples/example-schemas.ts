@@ -1,4 +1,4 @@
-import type { ODVRulesSchema } from '../src/index'
+import type { ODValidatorRulesSchema } from '../src/index'
 
 export const rulesToBePassed = {
   'my-integer': {
@@ -54,7 +54,7 @@ export const rulesToBePassed = {
       },
     },
   },
-} as const satisfies ODVRulesSchema
+} as const satisfies ODValidatorRulesSchema
 
 export const rulesToBeFailed = {
   'my-integer': {
@@ -108,4 +108,4 @@ export const rulesToBeFailed = {
       },
     },
   },
-} as const satisfies ODVRulesSchema
+} as const satisfies ODValidatorRulesSchema

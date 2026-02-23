@@ -1,4 +1,4 @@
-import type { ODVRulesSchema, ODVRuleSchema } from './types'
+import type { ODValidatorRulesSchema, ODValidatorRuleSchema } from './types'
 
 // Map a single type string literal to its TypeScript type
 type MapSingleType<T extends string> =
@@ -28,12 +28,12 @@ type NarrowIn<InValues, BaseType> =
 
 // Infer a full schema (object-level) from children
 type InferChildren<C> =
-  C extends ODVRulesSchema ? InferSchema<C> : Record<string, unknown>
+  C extends ODValidatorRulesSchema ? InferSchema<C> : Record<string, unknown>
 
 // Infer array element type from children with '*' wildcard
 type InferArrayChildren<C> =
   C extends { readonly '*': infer StarRule }
-    ? StarRule extends ODVRuleSchema
+    ? StarRule extends ODValidatorRuleSchema
       ? InferRuleDef<StarRule>
       : unknown
     : unknown
@@ -73,8 +73,8 @@ type OptionalKeys<S> = {
 
 // Build the inferred object type from a schema
 type InferSchema<S> =
-  { -readonly [K in RequiredKeys<S>]: S[K] extends ODVRuleSchema ? InferRuleDef<S[K]> : unknown } &
-  { -readonly [K in OptionalKeys<S>]?: S[K] extends ODVRuleSchema ? InferRuleDef<S[K]> : unknown }
+  { -readonly [K in RequiredKeys<S>]: S[K] extends ODValidatorRuleSchema ? InferRuleDef<S[K]> : unknown } &
+  { -readonly [K in OptionalKeys<S>]?: S[K] extends ODValidatorRuleSchema ? InferRuleDef<S[K]> : unknown }
 
 /**
  * Infers the TypeScript type that a validated object would have, given a schema `S`.
@@ -89,8 +89,8 @@ type InferSchema<S> =
  *   name: { type: 'string', required: true },
  *   age: { type: 'integer' },
  * } as const
- * type User = ODVInfer<typeof schema>
+ * type User = ODValidatorInfer<typeof schema>
  * // { name: string; age?: number }
  * ```
  */
-export type ODVInfer<S extends ODVRulesSchema> = InferSchema<S>
+export type ODValidatorInfer<S extends ODValidatorRulesSchema> = InferSchema<S>

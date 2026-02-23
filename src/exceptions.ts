@@ -1,24 +1,24 @@
-import type { ODVErrors } from './types'
+import type { ODValidatorErrors } from './types'
 
 /**
  * Thrown when input data fails validation.
  * Contains structured error details accessible via {@link details} and a simplified {@link info} view.
  */
-export class ODVException extends Error {
-  private _details: ODVErrors
+export class ODValidatorException extends Error {
+  private _details: ODValidatorErrors
 
-  constructor(message: string, details: ODVErrors = {}) {
+  constructor(message: string, details: ODValidatorErrors = {}) {
     super(message)
-    this.name = 'ODVException'
+    this.name = 'ODValidatorException'
     this._details = details
   }
 
   /** Structured validation errors keyed by field name. */
-  get details(): ODVErrors {
+  get details(): ODValidatorErrors {
     return this._details
   }
 
-  set details(value: ODVErrors) {
+  set details(value: ODValidatorErrors) {
     this._details = value
   }
 
@@ -36,9 +36,9 @@ export class ODVException extends Error {
  * Thrown when the schema itself is invalid (e.g. unsupported type, conflicting rules).
  * This indicates a programming error in the schema definition, not invalid user input.
  */
-export class ODVRulesException extends ODVException {
-  constructor(message: string, details: ODVErrors = {}) {
+export class ODValidatorRulesException extends ODValidatorException {
+  constructor(message: string, details: ODValidatorErrors = {}) {
     super(message, details)
-    this.name = 'ODVRulesException'
+    this.name = 'ODValidatorRulesException'
   }
 }

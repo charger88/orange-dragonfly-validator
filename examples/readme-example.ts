@@ -1,7 +1,7 @@
-import { ODVException, parse } from '../src/index'
-import type { ODVRulesSchema } from '../src/index'
+import { ODValidatorException, parse } from '../src/index'
+import type { ODValidatorRulesSchema } from '../src/index'
 
-const rules: ODVRulesSchema = {
+const rules: ODValidatorRulesSchema = {
   name: {
     type: 'string',
     pattern: /^[A-Z]([a-z]+)$/,
@@ -20,7 +20,7 @@ function f(input: Record<string, unknown>) {
     parse(rules, input)
     console.log(`${input.name}'s job as the ${input.position} ends in ${input.term_ends}`)
   } catch (e) {
-    console.error((e as ODVException).message, (e as ODVException).info)
+    console.error((e as ODValidatorException).message, (e as ODValidatorException).info)
   }
 }
 

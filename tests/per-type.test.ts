@@ -1,5 +1,5 @@
 import { parse, safeParse, ErrorCode } from '../src/index'
-import type { ODVRulesSchema } from '../src/index'
+import type { ODValidatorRulesSchema } from '../src/index'
 
 const opts = { strictMode: false } as const
 
@@ -8,7 +8,7 @@ function passes(rules: Parameters<typeof safeParse>[0], input: Record<string, un
 }
 
 describe('per_type - basic', () => {
-  const RULES: ODVRulesSchema = {
+  const RULES: ODValidatorRulesSchema = {
     val: {
       type: ['integer', 'string', 'array'],
       per_type: {
@@ -32,7 +32,7 @@ describe('per_type - basic', () => {
 
 describe('per_type - min/max per type', () => {
   test('different min/max for numbers vs strings', () => {
-    const rules: ODVRulesSchema = {
+    const rules: ODValidatorRulesSchema = {
       val: {
         type: ['number', 'string'],
         per_type: {
@@ -54,7 +54,7 @@ describe('per_type - min/max per type', () => {
   })
 
   test('integer falls under number per_type when number is specified', () => {
-    const rules: ODVRulesSchema = {
+    const rules: ODValidatorRulesSchema = {
       val: {
         type: ['number'],
         per_type: {
@@ -72,7 +72,7 @@ describe('per_type - min/max per type', () => {
 
 describe('per_type - pattern per type', () => {
   test('pattern only for string type', () => {
-    const rules: ODVRulesSchema = {
+    const rules: ODValidatorRulesSchema = {
       val: {
         type: ['integer', 'string'],
         per_type: {
@@ -88,7 +88,7 @@ describe('per_type - pattern per type', () => {
 
 describe('per_type - special validator per type', () => {
   test('special validator for string type', () => {
-    const rules: ODVRulesSchema = {
+    const rules: ODValidatorRulesSchema = {
       val: {
         type: ['integer', 'string'],
         per_type: {
@@ -104,7 +104,7 @@ describe('per_type - special validator per type', () => {
 
 describe('per_type - in list per type', () => {
   test('different in lists per type', () => {
-    const rules: ODVRulesSchema = {
+    const rules: ODValidatorRulesSchema = {
       val: {
         type: ['integer', 'string'],
         per_type: {
@@ -122,7 +122,7 @@ describe('per_type - in list per type', () => {
 
 describe('per_type - children per type', () => {
   test('children only for object type', () => {
-    const rules: ODVRulesSchema = {
+    const rules: ODValidatorRulesSchema = {
       val: {
         type: ['string', 'object'],
         per_type: {
@@ -142,7 +142,7 @@ describe('per_type - children per type', () => {
 
 describe('per_type - error codes', () => {
   test('per_type violation produces correct error code', () => {
-    const rules: ODVRulesSchema = {
+    const rules: ODValidatorRulesSchema = {
       val: {
         type: ['integer', 'string'],
         per_type: {
@@ -159,7 +159,7 @@ describe('per_type - error codes', () => {
   })
 
   test('per_type pattern mismatch error', () => {
-    const rules: ODVRulesSchema = {
+    const rules: ODValidatorRulesSchema = {
       val: {
         type: ['integer', 'string'],
         per_type: {
@@ -177,7 +177,7 @@ describe('per_type - error codes', () => {
 
 describe('per_type - with transform', () => {
   test('transform applies before per_type rules', () => {
-    const rules: ODVRulesSchema = {
+    const rules: ODValidatorRulesSchema = {
       val: {
         type: ['integer', 'string'],
         transform: (v) => typeof v === 'string' ? parseInt(v, 10) : v,
@@ -225,7 +225,7 @@ describe('per_type - with parse/safeParse', () => {
 
 describe('per_type - schema reuse', () => {
   test('per_type rules are not mutated across calls', () => {
-    const rules: ODVRulesSchema = {
+    const rules: ODValidatorRulesSchema = {
       val: {
         type: ['integer', 'string'],
         per_type: {

@@ -1,35 +1,35 @@
-import { parse, safeParse, ODVException, ODVSchemaBuilder, ODVPropertyBuilder, ODVValidator, ODVRules } from '../src/index'
+import { parse, safeParse, ODValidatorException, ODValidatorSchemaBuilder, ODValidatorPropertyBuilder, ODValidator, ODValidatorRules } from '../src/index'
 
 const opts = { strictMode: false } as const
 
-describe('ODVPropertyBuilder', () => {
+describe('ODValidatorPropertyBuilder', () => {
   test('builds empty rule from empty builder', () => {
-    const rule = new ODVPropertyBuilder()._build()
+    const rule = new ODValidatorPropertyBuilder()._build()
     expect(rule).toEqual({})
   })
 
   test('builds single type', () => {
-    const rule = new ODVPropertyBuilder().string()._build()
+    const rule = new ODValidatorPropertyBuilder().string()._build()
     expect(rule).toEqual({ type: 'string' })
   })
 
   test('builds multiple types as array', () => {
-    const rule = new ODVPropertyBuilder().string().integer()._build()
+    const rule = new ODValidatorPropertyBuilder().string().integer()._build()
     expect(rule).toEqual({ type: ['string', 'integer'] })
   })
 
   test('builds type via .type() with single value', () => {
-    const rule = new ODVPropertyBuilder().type('boolean')._build()
+    const rule = new ODValidatorPropertyBuilder().type('boolean')._build()
     expect(rule).toEqual({ type: 'boolean' })
   })
 
   test('builds type via .type() with array', () => {
-    const rule = new ODVPropertyBuilder().type(['string', 'null'])._build()
+    const rule = new ODValidatorPropertyBuilder().type(['string', 'null'])._build()
     expect(rule).toEqual({ type: ['string', 'null'] })
   })
 
   test('builds all constraint methods', () => {
-    const rule = new ODVPropertyBuilder()
+    const rule = new ODValidatorPropertyBuilder()
       .required()
       .default('test')
       .min(1)
@@ -47,7 +47,7 @@ describe('ODVPropertyBuilder', () => {
   })
 
   test('builds in and inPublic', () => {
-    const rule = new ODVPropertyBuilder()
+    const rule = new ODValidatorPropertyBuilder()
       .in(['a', 'b', 'c'])
       .inPublic(['a', 'b'])
       ._build()
@@ -57,19 +57,19 @@ describe('ODVPropertyBuilder', () => {
   })
 
   test('builds inPublic with boolean', () => {
-    const rule = new ODVPropertyBuilder().in([1, 2]).inPublic(true)._build()
+    const rule = new ODValidatorPropertyBuilder().in([1, 2]).inPublic(true)._build()
     expect(rule['in:public']).toBe(true)
   })
 
   test('builds transform and applyTransformed', () => {
     const fn = (v: unknown) => String(v)
-    const rule = new ODVPropertyBuilder().transform(fn).applyTransformed()._build()
+    const rule = new ODValidatorPropertyBuilder().transform(fn).applyTransformed()._build()
     expect(rule.transform).toBe(fn)
     expect(rule.apply_transformed).toBe(true)
   })
 
   test('builds children', () => {
-    const rule = new ODVPropertyBuilder()
+    const rule = new ODValidatorPropertyBuilder()
       .object()
       .children(c => c.property('name', p => p.required().string()))
       ._build()
@@ -81,7 +81,7 @@ describe('ODVPropertyBuilder', () => {
   })
 
   test('builds perType', () => {
-    const rule = new ODVPropertyBuilder()
+    const rule = new ODValidatorPropertyBuilder()
       .string().number()
       .perType('string', p => p.min(1).max(255))
       .perType('number', p => p.min(0).max(1000))
@@ -95,7 +95,7 @@ describe('ODVPropertyBuilder', () => {
   })
 
   test('_buildPerType strips type, required, default, per_type', () => {
-    const rule = new ODVPropertyBuilder()
+    const rule = new ODValidatorPropertyBuilder()
       .string()
       .required()
       .default('x')
@@ -109,19 +109,19 @@ describe('ODVPropertyBuilder', () => {
   })
 })
 
-describe('ODVSchemaBuilder', () => {
+describe('ODValidatorSchemaBuilder', () => {
   test('builds empty schema', () => {
-    const schema = new ODVSchemaBuilder().toSchema()
+    const schema = new ODValidatorSchemaBuilder().toSchema()
     expect(schema).toEqual({})
   })
 
   test('static create() returns builder', () => {
-    const builder = ODVSchemaBuilder.create()
-    expect(builder).toBeInstanceOf(ODVSchemaBuilder)
+    const builder = ODValidatorSchemaBuilder.create()
+    expect(builder).toBeInstanceOf(ODValidatorSchemaBuilder)
   })
 
   test('builds schema with properties', () => {
-    const schema = new ODVSchemaBuilder()
+    const schema = new ODValidatorSchemaBuilder()
       .property('name', p => p.required().string())
       .property('age', p => p.integer())
       .toSchema()
@@ -133,7 +133,7 @@ describe('ODVSchemaBuilder', () => {
   })
 
   test('builds wildcard rule', () => {
-    const schema = new ODVSchemaBuilder()
+    const schema = new ODValidatorSchemaBuilder()
       .wildcard(p => p.string().max(100))
       .toSchema()
 
@@ -141,7 +141,7 @@ describe('ODVSchemaBuilder', () => {
   })
 
   test('builds key validator', () => {
-    const schema = new ODVSchemaBuilder()
+    const schema = new ODValidatorSchemaBuilder()
       .keyValidator(p => p.pattern(/^[a-z]+$/))
       .toSchema()
 
@@ -149,17 +149,17 @@ describe('ODVSchemaBuilder', () => {
   })
 
   test('builds strict mode on', () => {
-    const schema = new ODVSchemaBuilder().strict().toSchema()
+    const schema = new ODValidatorSchemaBuilder().strict().toSchema()
     expect(schema['@']).toEqual({ strict: true })
   })
 
   test('builds strict mode off', () => {
-    const schema = new ODVSchemaBuilder().strict(false).toSchema()
+    const schema = new ODValidatorSchemaBuilder().strict(false).toSchema()
     expect(schema['@']).toEqual({ strict: false })
   })
 
-  test('complete() returns ODVRules', () => {
-    const rules = new ODVSchemaBuilder()
+  test('complete() returns ODValidatorRules', () => {
+    const rules = new ODValidatorSchemaBuilder()
       .property('name', p => p.string())
       .complete()
 
@@ -170,7 +170,7 @@ describe('ODVSchemaBuilder', () => {
 
 describe('Builder integration with parse', () => {
   test('basic validation passes', () => {
-    const schema = ODVSchemaBuilder.create()
+    const schema = ODValidatorSchemaBuilder.create()
       .property('name', p => p.required().string().min(1))
       .property('age', p => p.integer().min(0))
       .toSchema()
@@ -180,15 +180,15 @@ describe('Builder integration with parse', () => {
   })
 
   test('basic validation fails on missing required', () => {
-    const schema = ODVSchemaBuilder.create()
+    const schema = ODValidatorSchemaBuilder.create()
       .property('name', p => p.required().string())
       .toSchema()
 
-    expect(() => parse(schema, {}, opts)).toThrow(ODVException)
+    expect(() => parse(schema, {}, opts)).toThrow(ODValidatorException)
   })
 
   test('default values work', () => {
-    const schema = ODVSchemaBuilder.create()
+    const schema = ODValidatorSchemaBuilder.create()
       .property('role', p => p.string().default('user'))
       .toSchema()
 
@@ -197,40 +197,40 @@ describe('Builder integration with parse', () => {
   })
 
   test('special validators work', () => {
-    const schema = ODVSchemaBuilder.create()
+    const schema = ODValidatorSchemaBuilder.create()
       .property('email', p => p.required().string().special('email'))
       .toSchema()
 
     const data = parse(schema, { email: 'test@example.com' }, opts)
     expect(data.email).toBe('test@example.com')
 
-    expect(() => parse(schema, { email: 'not-an-email' }, opts)).toThrow(ODVException)
+    expect(() => parse(schema, { email: 'not-an-email' }, opts)).toThrow(ODValidatorException)
   })
 
   test('in constraint works', () => {
-    const schema = ODVSchemaBuilder.create()
+    const schema = ODValidatorSchemaBuilder.create()
       .property('status', p => p.string().in(['active', 'inactive']))
       .toSchema()
 
     const data = parse(schema, { status: 'active' }, opts)
     expect(data.status).toBe('active')
 
-    expect(() => parse(schema, { status: 'deleted' }, opts)).toThrow(ODVException)
+    expect(() => parse(schema, { status: 'deleted' }, opts)).toThrow(ODValidatorException)
   })
 
   test('pattern works', () => {
-    const schema = ODVSchemaBuilder.create()
+    const schema = ODValidatorSchemaBuilder.create()
       .property('code', p => p.string().pattern(/^[A-Z]{3}$/))
       .toSchema()
 
     const data = parse(schema, { code: 'ABC' }, opts)
     expect(data.code).toBe('ABC')
 
-    expect(() => parse(schema, { code: 'abc' }, opts)).toThrow(ODVException)
+    expect(() => parse(schema, { code: 'abc' }, opts)).toThrow(ODValidatorException)
   })
 
   test('transform with applyTransformed works', () => {
-    const schema = ODVSchemaBuilder.create()
+    const schema = ODValidatorSchemaBuilder.create()
       .property('value', p => p.integer()
         .transform(v => typeof v === 'string' ? parseInt(v, 10) : v)
         .applyTransformed(),
@@ -242,7 +242,7 @@ describe('Builder integration with parse', () => {
   })
 
   test('nested object children work', () => {
-    const schema = ODVSchemaBuilder.create()
+    const schema = ODValidatorSchemaBuilder.create()
       .property('user', p => p.required().object()
         .children(c => c
           .property('name', p => p.required().string())
@@ -258,7 +258,7 @@ describe('Builder integration with parse', () => {
   })
 
   test('nested array children work', () => {
-    const schema = ODVSchemaBuilder.create()
+    const schema = ODValidatorSchemaBuilder.create()
       .property('tags', p => p.required().array().min(1)
         .children(c => c.wildcard(p => p.string())),
       )
@@ -267,11 +267,11 @@ describe('Builder integration with parse', () => {
     const data = parse(schema, { tags: ['a', 'b', 'c'] }, opts)
     expect(data.tags).toEqual(['a', 'b', 'c'])
 
-    expect(() => parse(schema, { tags: [] }, opts)).toThrow(ODVException)
+    expect(() => parse(schema, { tags: [] }, opts)).toThrow(ODValidatorException)
   })
 
   test('deeply nested schemas work', () => {
-    const schema = ODVSchemaBuilder.create()
+    const schema = ODValidatorSchemaBuilder.create()
       .property('users', p => p.required().array()
         .children(c => c
           .wildcard(p => p.object()
@@ -294,7 +294,7 @@ describe('Builder integration with parse', () => {
   })
 
   test('per-type rules work', () => {
-    const schema = ODVSchemaBuilder.create()
+    const schema = ODValidatorSchemaBuilder.create()
       .property('value', p => p.string().number()
         .perType('string', p => p.min(1).max(10))
         .perType('number', p => p.min(0).max(1000)),
@@ -307,11 +307,11 @@ describe('Builder integration with parse', () => {
     const data2 = parse(schema, { value: 42 }, opts)
     expect(data2.value).toBe(42)
 
-    expect(() => parse(schema, { value: '' }, opts)).toThrow(ODVException)
+    expect(() => parse(schema, { value: '' }, opts)).toThrow(ODValidatorException)
   })
 
   test('wildcard and keyValidator work', () => {
-    const schema = ODVSchemaBuilder.create()
+    const schema = ODValidatorSchemaBuilder.create()
       .strict(false)
       .keyValidator(p => p.pattern(/^[a-z]+$/))
       .wildcard(p => p.string())
@@ -320,20 +320,20 @@ describe('Builder integration with parse', () => {
     const data = parse(schema, { hello: 'world', foo: 'bar' })
     expect(data).toBeDefined()
 
-    expect(() => parse(schema, { UPPER: 'bad' })).toThrow(ODVException)
+    expect(() => parse(schema, { UPPER: 'bad' })).toThrow(ODValidatorException)
   })
 
   test('strict mode rejects extra keys', () => {
-    const schema = ODVSchemaBuilder.create()
+    const schema = ODValidatorSchemaBuilder.create()
       .property('name', p => p.string())
       .strict()
       .toSchema()
 
-    expect(() => parse(schema, { name: 'Alice', extra: 'bad' })).toThrow(ODVException)
+    expect(() => parse(schema, { name: 'Alice', extra: 'bad' })).toThrow(ODValidatorException)
   })
 
   test('strict(false) allows extra keys', () => {
-    const schema = ODVSchemaBuilder.create()
+    const schema = ODValidatorSchemaBuilder.create()
       .property('name', p => p.string())
       .strict(false)
       .toSchema()
@@ -343,7 +343,7 @@ describe('Builder integration with parse', () => {
   })
 
   test('nullable type works', () => {
-    const schema = ODVSchemaBuilder.create()
+    const schema = ODValidatorSchemaBuilder.create()
       .property('value', p => p.string().null())
       .toSchema()
 
@@ -352,9 +352,9 @@ describe('Builder integration with parse', () => {
   })
 })
 
-describe('parse/safeParse accept ODVRules directly', () => {
-  test('parse accepts ODVRules instance', () => {
-    const rules = ODVSchemaBuilder.create()
+describe('parse/safeParse accept ODValidatorRules directly', () => {
+  test('parse accepts ODValidatorRules instance', () => {
+    const rules = ODValidatorSchemaBuilder.create()
       .property('name', p => p.required().string())
       .complete()
 
@@ -362,22 +362,22 @@ describe('parse/safeParse accept ODVRules directly', () => {
     expect(data.name).toBe('Alice')
   })
 
-  test('parse with ODVRules throws on validation failure', () => {
-    const rules = ODVSchemaBuilder.create()
+  test('parse with ODValidatorRules throws on validation failure', () => {
+    const rules = ODValidatorSchemaBuilder.create()
       .property('name', p => p.required().string())
       .complete()
 
-    expect(() => parse(rules, {}, opts)).toThrow(ODVException)
+    expect(() => parse(rules, {}, opts)).toThrow(ODValidatorException)
   })
 
-  test('parse accepts manually constructed ODVRules', () => {
-    const rules = new ODVRules({ name: { type: 'string', required: true } } as const)
+  test('parse accepts manually constructed ODValidatorRules', () => {
+    const rules = new ODValidatorRules({ name: { type: 'string', required: true } } as const)
     const data = parse(rules, { name: 'Bob' }, opts)
     expect(data.name).toBe('Bob')
   })
 
-  test('safeParse accepts ODVRules instance', () => {
-    const rules = ODVSchemaBuilder.create()
+  test('safeParse accepts ODValidatorRules instance', () => {
+    const rules = ODValidatorSchemaBuilder.create()
       .property('name', p => p.required().string())
       .complete()
 
@@ -388,8 +388,8 @@ describe('parse/safeParse accept ODVRules directly', () => {
     }
   })
 
-  test('safeParse with ODVRules returns failure', () => {
-    const rules = ODVSchemaBuilder.create()
+  test('safeParse with ODValidatorRules returns failure', () => {
+    const rules = ODValidatorSchemaBuilder.create()
       .property('name', p => p.required().string())
       .complete()
 
@@ -400,8 +400,8 @@ describe('parse/safeParse accept ODVRules directly', () => {
     }
   })
 
-  test('parse with ODVRules applies defaults', () => {
-    const rules = ODVSchemaBuilder.create()
+  test('parse with ODValidatorRules applies defaults', () => {
+    const rules = ODValidatorSchemaBuilder.create()
       .property('role', p => p.string().default('user'))
       .complete()
 
@@ -409,8 +409,8 @@ describe('parse/safeParse accept ODVRules directly', () => {
     expect(data.role).toBe('user')
   })
 
-  test('parse with ODVRules and nested children', () => {
-    const rules = ODVSchemaBuilder.create()
+  test('parse with ODValidatorRules and nested children', () => {
+    const rules = ODValidatorSchemaBuilder.create()
       .property('users', p => p.required().array()
         .children(c => c
           .wildcard(p => p.object()
@@ -429,7 +429,7 @@ describe('parse/safeParse accept ODVRules directly', () => {
 
 describe('Builder integration with safeParse', () => {
   test('safeParse success', () => {
-    const schema = ODVSchemaBuilder.create()
+    const schema = ODValidatorSchemaBuilder.create()
       .property('name', p => p.required().string())
       .toSchema()
 
@@ -441,7 +441,7 @@ describe('Builder integration with safeParse', () => {
   })
 
   test('safeParse failure', () => {
-    const schema = ODVSchemaBuilder.create()
+    const schema = ODValidatorSchemaBuilder.create()
       .property('name', p => p.required().string())
       .toSchema()
 
@@ -453,25 +453,25 @@ describe('Builder integration with safeParse', () => {
   })
 })
 
-describe('Builder integration with ODVValidator', () => {
-  test('complete() works with ODVValidator', () => {
-    const rules = ODVSchemaBuilder.create()
+describe('Builder integration with ODValidator', () => {
+  test('complete() works with ODValidator', () => {
+    const rules = ODValidatorSchemaBuilder.create()
       .property('name', p => p.required().string())
       .property('age', p => p.integer().min(0))
       .complete()
 
-    const validator = new ODVValidator(rules, { exceptionMode: false, strictMode: false })
+    const validator = new ODValidator(rules, { exceptionMode: false, strictMode: false })
     const valid = validator.validate({ name: 'Alice', age: 25 })
     expect(valid).toBe(true)
     expect(validator.data).toEqual({ name: 'Alice', age: 25 })
   })
 
   test('complete() validator detects errors', () => {
-    const rules = ODVSchemaBuilder.create()
+    const rules = ODValidatorSchemaBuilder.create()
       .property('name', p => p.required().string())
       .complete()
 
-    const validator = new ODVValidator(rules, { exceptionMode: false, strictMode: false })
+    const validator = new ODValidator(rules, { exceptionMode: false, strictMode: false })
     const valid = validator.validate({})
     expect(valid).toBe(false)
     expect(validator.errors.name).toBeDefined()

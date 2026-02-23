@@ -1,4 +1,4 @@
-import { fromJsonSchema, toJsonSchema, ODVValidator, validate } from '../src/index'
+import { fromJsonSchema, toJsonSchema, ODValidator, validate } from '../src/index'
 
 describe('fromJsonSchema', () => {
   test('converts basic object schema with types', () => {
@@ -339,7 +339,7 @@ describe('fromJsonSchema', () => {
 })
 
 describe('toJsonSchema', () => {
-  test('converts basic ODV schema to JSON Schema', () => {
+  test('converts basic ODValidator schema to JSON Schema', () => {
     const js = toJsonSchema({
       name: { type: 'string' },
       age: { type: 'integer' },
@@ -525,9 +525,9 @@ describe('toJsonSchema', () => {
   })
 })
 
-describe('ODVValidator.fromJsonSchema', () => {
+describe('ODValidator.fromJsonSchema', () => {
   test('creates a working validator from JSON Schema', () => {
-    const { validator, warnings } = ODVValidator.fromJsonSchema({
+    const { validator, warnings } = ODValidator.fromJsonSchema({
       type: 'object',
       properties: {
         name: { type: 'string', minLength: 1 },
@@ -542,7 +542,7 @@ describe('ODVValidator.fromJsonSchema', () => {
   })
 
   test('validator rejects invalid data', () => {
-    const { validator } = ODVValidator.fromJsonSchema({
+    const { validator } = ODValidator.fromJsonSchema({
       type: 'object',
       properties: {
         name: { type: 'string' },
@@ -554,7 +554,7 @@ describe('ODVValidator.fromJsonSchema', () => {
   })
 
   test('returns warnings for unsupported keywords', () => {
-    const { warnings } = ODVValidator.fromJsonSchema({
+    const { warnings } = ODValidator.fromJsonSchema({
       type: 'object',
       properties: {},
       $ref: '#/definitions/Foo',

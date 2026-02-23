@@ -1,4 +1,4 @@
-import type { ODVRuleSchema, ODVPerTypeRuleSchema, ODVRulesSchema } from './types'
+import type { ODValidatorRuleSchema, ODValidatorPerTypeRuleSchema, ODValidatorRulesSchema } from './types'
 
 // Manual deep clone is required because structuredClone cannot handle
 // function references (the `transform` property). Functions are inherently
@@ -12,8 +12,8 @@ function clonePattern(pattern: RegExp | string | undefined): RegExp | string | u
   return pattern
 }
 
-export function deepClonePerTypeRuleDef(def: ODVPerTypeRuleSchema): ODVPerTypeRuleSchema {
-  const clone: ODVPerTypeRuleSchema = { ...def }
+export function deepClonePerTypeRuleDef(def: ODValidatorPerTypeRuleSchema): ODValidatorPerTypeRuleSchema {
+  const clone: ODValidatorPerTypeRuleSchema = { ...def }
   if (def.in) clone.in = [...def.in]
   if (Array.isArray(def['in:public'])) {
     clone['in:public'] = [...def['in:public']]
@@ -27,8 +27,8 @@ export function deepClonePerTypeRuleDef(def: ODVPerTypeRuleSchema): ODVPerTypeRu
   return clone
 }
 
-export function deepCloneRuleDef(def: ODVRuleSchema): ODVRuleSchema {
-  const clone: ODVRuleSchema = { ...def }
+export function deepCloneRuleDef(def: ODValidatorRuleSchema): ODValidatorRuleSchema {
+  const clone: ODValidatorRuleSchema = { ...def }
   if (Array.isArray(def.type)) {
     clone.type = [...def.type]
   }
@@ -51,13 +51,13 @@ export function deepCloneRuleDef(def: ODVRuleSchema): ODVRuleSchema {
   return clone
 }
 
-export function deepCloneSchema(schema: ODVRulesSchema): ODVRulesSchema {
-  const clone: ODVRulesSchema = {}
+export function deepCloneSchema(schema: ODValidatorRulesSchema): ODValidatorRulesSchema {
+  const clone: ODValidatorRulesSchema = {}
   for (const key of Object.keys(schema)) {
     if (key === '@') {
       clone['@'] = { ...schema['@'] }
     } else {
-      clone[key] = deepCloneRuleDef(schema[key] as ODVRuleSchema)
+      clone[key] = deepCloneRuleDef(schema[key] as ODValidatorRuleSchema)
     }
   }
   return clone

@@ -1,4 +1,4 @@
-import { parse, safeParse, ODVRulesException } from '../src/index'
+import { parse, safeParse, ODValidatorRulesException } from '../src/index'
 
 describe('invalid rules detection', () => {
   test('invalid type value in rule throws', () => {
@@ -50,7 +50,7 @@ describe('rules error is distinguishable from validation error', () => {
       parse({ val: { type: 'invalid_type' as 'string' } }, { val: 'test' })
       throw new Error('Should have thrown')
     } catch (e) {
-      expect(e).toBeInstanceOf(ODVRulesException)
+      expect(e).toBeInstanceOf(ODValidatorRulesException)
       expect((e as Error).message).toContain('Validation rules')
     }
   })

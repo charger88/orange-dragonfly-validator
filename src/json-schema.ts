@@ -1,4 +1,4 @@
-import type { ODVRulesSchema, ODVRuleSchema, ODVPerTypeRuleSchema } from './types'
+import type { ODValidatorRulesSchema, ODValidatorRuleSchema, ODValidatorPerTypeRuleSchema } from './types'
 
 /** Subset of JSON Schema (draft-07 / 2020-12) supported by the converter. */
 export interface JsonSchema {
@@ -24,9 +24,9 @@ export interface JsonSchema {
   [key: string]: unknown
 }
 
-/** Result of {@link fromJsonSchema}: the converted ODV schema and any conversion warnings. */
+/** Result of {@link fromJsonSchema}: the converted ODValidator schema and any conversion warnings. */
 export interface FromJsonSchemaResult {
-  schema: ODVRulesSchema
+  schema: ODValidatorRulesSchema
   warnings: string[]
 }
 
@@ -55,7 +55,7 @@ const SPECIAL_TO_FORMAT: Record<string, string> = {
   'hex-color': 'hex-color',
 }
 
-const VALID_ODV_TYPES = new Set(['string', 'number', 'integer', 'array', 'object', 'boolean', 'null'])
+const VALID_ODValidator_TYPES = new Set(['string', 'number', 'integer', 'array', 'object', 'boolean', 'null'])
 
 const SUPPORTED_KEYWORDS = new Set([
   'type', 'properties', 'required', 'items', 'enum', 'const', 'default',
@@ -74,7 +74,7 @@ const SKIPPABLE_KEYWORDS = new Set([
 function convertType(jsType: string | string[] | undefined): string[] | undefined {
   if (jsType === undefined) return undefined
   const types = Array.isArray(jsType) ? jsType : [jsType]
-  return types.filter(t => VALID_ODV_TYPES.has(t))
+  return types.filter(t => VALID_ODValidator_TYPES.has(t))
 }
 
 function resolveMinMaxForType(js: JsonSchema, type: string, warnings: string[], path: string): { min?: number, max?: number } {
@@ -88,7 +88,7 @@ function resolveMinMaxForType(js: JsonSchema, type: string, warnings: string[], 
       if (type === 'integer') {
         result.min = Math.floor(js.exclusiveMinimum) + 1
       } else {
-        warnings.push(`'exclusiveMinimum' at ${path || 'root'} converted to 'minimum' (ODV has no exclusive bounds)`)
+        warnings.push(`'exclusiveMinimum' at ${path || 'root'} converted to 'minimum' (ODValidator has no exclusive bounds)`)
         result.min = js.exclusiveMinimum
       }
     }
@@ -97,7 +97,7 @@ function resolveMinMaxForType(js: JsonSchema, type: string, warnings: string[], 
       if (type === 'integer') {
         result.max = Math.ceil(js.exclusiveMaximum) - 1
       } else {
-        warnings.push(`'exclusiveMaximum' at ${path || 'root'} converted to 'maximum' (ODV has no exclusive bounds)`)
+        warnings.push(`'exclusiveMaximum' at ${path || 'root'} converted to 'maximum' (ODValidator has no exclusive bounds)`)
         result.max = js.exclusiveMaximum
       }
     }
@@ -116,13 +116,13 @@ function collectWarnings(js: JsonSchema, path: string, warnings: string[]): void
   }
 }
 
-function convertPropertyToRule(js: JsonSchema, path: string, warnings: string[]): ODVRuleSchema {
+function convertPropertyToRule(js: JsonSchema, path: string, warnings: string[]): ODValidatorRuleSchema {
   collectWarnings(js, path, warnings)
 
-  const rule: ODVRuleSchema = {}
+  const rule: ODValidatorRuleSchema = {}
   const types = convertType(js.type)
   if (types !== undefined && types.length > 0) {
-    rule.type = types.length === 1 ? types[0] as ODVRuleSchema['type'] : types as unknown as ODVRuleSchema['type']
+    rule.type = types.length === 1 ? types[0] as ODValidatorRuleSchema['type'] : types as unknown as ODValidatorRuleSchema['type']
   }
 
   if (js.const !== undefined) {
@@ -154,7 +154,7 @@ function convertPropertyToRule(js: JsonSchema, path: string, warnings: string[])
   if (hasMinMax) {
     if (types !== undefined && types.length > 1) {
       // Multi-type: distribute min/max into per_type
-      const perType: Record<string, ODVPerTypeRuleSchema> = {}
+      const perType: Record<string, ODValidatorPerTypeRuleSchema> = {}
       for (const t of types) {
         const mm = resolveMinMaxForType(js, t, warnings, path)
         if (mm.min !== undefined || mm.max !== undefined) {
@@ -199,24 +199,24 @@ function convertPropertyToRule(js: JsonSchema, path: string, warnings: string[])
   return rule
 }
 
-function convertObjectToSchema(js: JsonSchema, path: string, warnings: string[]): ODVRulesSchema {
-  const schema: ODVRulesSchema = {}
+function convertObjectToSchema(js: JsonSchema, path: string, warnings: string[]): ODValidatorRulesSchema {
+  const schema: ODValidatorRulesSchema = {}
 
   const requiredSet = new Set(js.required ?? [])
 
   if (js.additionalProperties === false) {
     schema['@'] = { strict: true }
   } else if (typeof js.additionalProperties === 'object') {
-    // JSON Schema allows a schema for additional properties; ODV only supports boolean strict mode.
+    // JSON Schema allows a schema for additional properties; ODValidator only supports boolean strict mode.
     // Treat as strict: false (additional properties are allowed) and warn.
     schema['@'] = { strict: false }
-    warnings.push(`'additionalProperties' schema at ${path || 'root'} converted to non-strict mode (ODV only supports boolean)`)
+    warnings.push(`'additionalProperties' schema at ${path || 'root'} converted to non-strict mode (ODValidator only supports boolean)`)
   } else {
     schema['@'] = { strict: false }
   }
 
   if (js.propertyNames !== undefined) {
-    const keyRule: ODVRuleSchema = { type: 'string' }
+    const keyRule: ODValidatorRuleSchema = { type: 'string' }
     if (js.propertyNames.pattern !== undefined) {
       keyRule.pattern = js.propertyNames.pattern
     }
@@ -253,10 +253,10 @@ function convertObjectToSchema(js: JsonSchema, path: string, warnings: string[])
 }
 
 /**
- * Converts a JSON Schema object to an ODV rules schema.
+ * Converts a JSON Schema object to an ODValidator rules schema.
  * Unsupported keywords are skipped and reported as warnings.
  *
- * **Unsupported JSON Schema features** (no ODV equivalent):
+ * **Unsupported JSON Schema features** (no ODValidator equivalent):
  * - `oneOf`, `anyOf`, `allOf` — union/intersection schemas
  * - `not` — schema negation
  * - `if` / `then` / `else` — conditional validation
@@ -278,7 +278,7 @@ export function fromJsonSchema(jsonSchema: JsonSchema): FromJsonSchemaResult {
 
 // ─── toJsonSchema ────────────────────────────────────────────────────
 
-function ruleToJsonProperty(rule: ODVRuleSchema): JsonSchema {
+function ruleToJsonProperty(rule: ODValidatorRuleSchema): JsonSchema {
   const js: JsonSchema = {}
 
   // type
@@ -351,7 +351,7 @@ function ruleToJsonProperty(rule: ODVRuleSchema): JsonSchema {
     const isObject = resolvedTypes.includes('object')
 
     if (isArray && rule.children['*'] !== undefined) {
-      js.items = ruleToJsonProperty(rule.children['*'] as ODVRuleSchema)
+      js.items = ruleToJsonProperty(rule.children['*'] as ODValidatorRuleSchema)
     }
     if (isObject || (!isArray && !isObject)) {
       Object.assign(js, schemaToJsonObject(rule.children))
@@ -378,7 +378,7 @@ function applyMinMaxToJsonSchema(js: JsonSchema, type: string | undefined, min: 
   }
 }
 
-function schemaToJsonObject(schema: ODVRulesSchema): JsonSchema {
+function schemaToJsonObject(schema: ODValidatorRulesSchema): JsonSchema {
   const js: JsonSchema = {}
   const requiredFields: string[] = []
   const properties: Record<string, JsonSchema> = {}
@@ -395,7 +395,7 @@ function schemaToJsonObject(schema: ODVRulesSchema): JsonSchema {
 
   // '#' → propertyNames
   if (schema['#'] !== undefined) {
-    const keyRule = schema['#'] as ODVRuleSchema
+    const keyRule = schema['#'] as ODValidatorRuleSchema
     const propertyNames: JsonSchema = {}
     if (keyRule.pattern !== undefined) {
       propertyNames.pattern = keyRule.pattern instanceof RegExp ? keyRule.pattern.source : keyRule.pattern
@@ -418,7 +418,7 @@ function schemaToJsonObject(schema: ODVRulesSchema): JsonSchema {
 
   for (const key of Object.keys(schema)) {
     if (key === '@' || key === '#' || key === '*') continue
-    const rule = schema[key] as ODVRuleSchema
+    const rule = schema[key] as ODValidatorRuleSchema
     if (rule.required) {
       requiredFields.push(key)
     }
@@ -436,10 +436,10 @@ function schemaToJsonObject(schema: ODVRulesSchema): JsonSchema {
 }
 
 /**
- * Converts an ODV rules schema to a JSON Schema object.
+ * Converts an ODValidator rules schema to a JSON Schema object.
  * Features without a JSON Schema equivalent (e.g. `transform`) are silently skipped.
  */
-export function toJsonSchema(schema: ODVRulesSchema): JsonSchema {
+export function toJsonSchema(schema: ODValidatorRulesSchema): JsonSchema {
   const js: JsonSchema = {
     type: 'object',
     ...schemaToJsonObject(schema),

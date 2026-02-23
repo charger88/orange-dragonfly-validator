@@ -1,20 +1,20 @@
-import type { ODVRuleSchema, ODVPerTypeRuleSchema, ODVValueType, ODVRulesSchema, ODVErrors } from './types'
-import type { ODVErrorCode, ODVMessageFormatter } from './error-codes'
+import type { ODValidatorRuleSchema, ODValidatorPerTypeRuleSchema, ODValidatorValueType, ODValidatorRulesSchema, ODValidatorErrors } from './types'
+import type { ODValidatorErrorCode, ODValidatorMessageFormatter } from './error-codes'
 import { ErrorCode, DEFAULT_MESSAGES } from './error-codes'
-import { ODVRulesException } from './exceptions'
+import { ODValidatorRulesException } from './exceptions'
 import { SPECIAL_VALIDATORS, SPECIAL_MAX_LENGTHS } from './special-validators'
 import { deepCloneRuleDef } from './clone'
 
 const patternCache = new Map<string, RegExp>()
 
-type AddErrorFn = (code: ODVErrorCode, params?: Record<string, unknown>) => void
+type AddErrorFn = (code: ODValidatorErrorCode, params?: Record<string, unknown>) => void
 
-function throwRulesError(errMsg: string, info: ODVErrors): never {
-  throw new ODVRulesException(`${errMsg}. See "info" parameter of exception for the details`, info)
+function throwRulesError(errMsg: string, info: ODValidatorErrors): never {
+  throw new ODValidatorRulesException(`${errMsg}. See "info" parameter of exception for the details`, info)
 }
 
-/** Returns the ODV value type for a given value, or `null` for non-finite numbers. */
-function getValueType(value: unknown): ODVValueType | null {
+/** Returns the ODValidator value type for a given value, or `null` for non-finite numbers. */
+function getValueType(value: unknown): ODValidatorValueType | null {
   const t = typeof value
   if (t === 'object') {
     if (Array.isArray(value)) return 'array'
@@ -26,11 +26,11 @@ function getValueType(value: unknown): ODVValueType | null {
     if (Number.isInteger(value)) return 'integer'
     return 'number'
   }
-  return t as ODVValueType
+  return t as ODValidatorValueType
 }
 
 /** Returns the numeric value used for min/max comparison: length for strings/arrays, the value itself for numbers. */
-function getValueForMinOrMax(value: unknown, valueType: ODVValueType): number | null {
+function getValueForMinOrMax(value: unknown, valueType: ODValidatorValueType): number | null {
   if (valueType === 'array') return (value as unknown[]).length
   if (valueType === 'string') return (value as string).length
   if (valueType === 'number' || valueType === 'integer') return value as number
@@ -39,10 +39,10 @@ function getValueForMinOrMax(value: unknown, valueType: ODVValueType): number | 
 
 function checkMinMax(
   value: unknown,
-  valueType: ODVValueType,
+  valueType: ODValidatorValueType,
   min: number | undefined,
   max: number | undefined,
-  def: ODVRuleSchema,
+  def: ODValidatorRuleSchema,
   errorsKey: string,
   addError: AddErrorFn,
 ): void {
@@ -51,7 +51,7 @@ function checkMinMax(
     if (min !== undefined && (minMaxValue < min)) addError(ErrorCode.MIN_VIOLATION, { min, actual: minMaxValue })
     if (max !== undefined && (minMaxValue > max)) addError(ErrorCode.MAX_VIOLATION, { max, actual: minMaxValue })
   } else if (def.type === undefined || def.type === null || (def.type as string[]).length < 2) {
-    const info: ODVErrors = {}
+    const info: ODValidatorErrors = {}
     info[errorsKey] = [{ code: ErrorCode.MIN_MAX_NOT_APPLICABLE, message: `${valueType} can not be validated for "min" and "max"`, params: { actual: valueType } }]
     throwRulesError('Validation rules are incorrect', info)
   }
@@ -59,14 +59,14 @@ function checkMinMax(
 
 function checkInList(
   value: unknown,
-  valueType: ODVValueType,
+  valueType: ODValidatorValueType,
   inList: readonly unknown[],
   inPublic: readonly unknown[] | boolean | undefined,
   errorsKey: string,
   addError: AddErrorFn,
 ): void {
   if (valueType === 'object') {
-    const info: ODVErrors = {}
+    const info: ODValidatorErrors = {}
     info[errorsKey] = [{ code: ErrorCode.IN_NOT_APPLICABLE, message: '"in" directive is not applicable for objects', params: {} }]
     throwRulesError('Validation rules are incorrect', info)
   } else if (valueType === 'array') {
@@ -84,7 +84,7 @@ function checkInList(
 
 function checkPattern(
   value: unknown,
-  valueType: ODVValueType,
+  valueType: ODValidatorValueType,
   pattern: RegExp | string | undefined,
   special: string | undefined,
   addError: AddErrorFn,
@@ -123,17 +123,17 @@ function checkPattern(
 
 function checkChildren(
   value: unknown,
-  valueType: ODVValueType,
-  children: ODVRulesSchema,
-  def: ODVRuleSchema,
+  valueType: ODValidatorValueType,
+  children: ODValidatorRulesSchema,
+  def: ODValidatorRuleSchema,
   errorsKey: string,
-  processChildren: (rules: ODVRulesSchema, input: Record<string, unknown>, prefix: string) => void,
+  processChildren: (rules: ODValidatorRulesSchema, input: Record<string, unknown>, prefix: string) => void,
 ): void {
   if ((valueType === 'object') || (valueType === 'array')) {
     processChildren(children, value as Record<string, unknown>, `${errorsKey}.`)
   } else {
     if (def.type === undefined || !(def.type as string[]).filter(t => !['object', 'array'].includes(t)).length) {
-      const info: ODVErrors = {}
+      const info: ODValidatorErrors = {}
       info[errorsKey] = [{ code: ErrorCode.CHILDREN_TYPE_ERROR, message: `Can't validate children of type ${valueType}`, params: { actual: valueType } }]
       throwRulesError('Validation rules are incorrect', info)
     }
@@ -144,16 +144,16 @@ function checkChildren(
  * Represents a single validation rule. Handles type checking, min/max enforcement,
  * pattern matching, `in` list validation, special format validation, and children delegation.
  */
-export class ODVRule {
-  readonly definition: ODVRuleSchema
+export class ODValidatorRule {
+  readonly definition: ODValidatorRuleSchema
 
   /** Creates a new rule instance, deep-cloning the definition to ensure immutability. */
-  constructor(definition: ODVRuleSchema) {
+  constructor(definition: ODValidatorRuleSchema) {
     this.definition = deepCloneRuleDef(definition)
   }
 
-  /** Throws an {@link ODVRulesException} indicating the schema itself is invalid. */
-  static validationRulesError(errMsg: string, info: ODVErrors): never {
+  /** Throws an {@link ODValidatorRulesException} indicating the schema itself is invalid. */
+  static validationRulesError(errMsg: string, info: ODValidatorErrors): never {
     return throwRulesError(errMsg, info)
   }
 
@@ -170,12 +170,12 @@ export class ODVRule {
    * @returns The (possibly transformed) value.
    */
   static applyRule(
-    def: ODVRuleSchema,
+    def: ODValidatorRuleSchema,
     originalValue: unknown,
     errorsKey: string,
-    errors: ODVErrors,
-    processChildren: (rules: ODVRulesSchema, input: Record<string, unknown>, prefix: string) => void,
-    messageFormatter?: ODVMessageFormatter,
+    errors: ODValidatorErrors,
+    processChildren: (rules: ODValidatorRulesSchema, input: Record<string, unknown>, prefix: string) => void,
+    messageFormatter?: ODValidatorMessageFormatter,
   ): unknown {
     const addError: AddErrorFn = (code, params = {}) => {
       const message = messageFormatter
@@ -203,7 +203,7 @@ export class ODVRule {
     }
 
     // Resolve per_type overrides without mutation — read from overlay first, then base def
-    const perType: ODVPerTypeRuleSchema | undefined = def.per_type !== undefined && Object.hasOwn(def.per_type, valueType) ? def.per_type[valueType] : undefined
+    const perType: ODValidatorPerTypeRuleSchema | undefined = def.per_type !== undefined && Object.hasOwn(def.per_type, valueType) ? def.per_type[valueType] : undefined
     const min = perType?.min ?? def.min
     const max = perType?.max ?? def.max
     const inList = perType?.in ?? def.in

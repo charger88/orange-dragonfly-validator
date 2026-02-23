@@ -1,4 +1,4 @@
-import { parse, safeParse, ODVValidator, ODVRules } from '../src/index'
+import { parse, safeParse, ODValidator, ODValidatorRules } from '../src/index'
 
 const opts = { strictMode: false } as const
 
@@ -21,13 +21,13 @@ describe('concurrent validator usage', () => {
     if (result2.success) expect(result2.data.name).toBe('Bob')
   })
 
-  test('shared ODVRules instance works correctly across multiple validators', () => {
-    const rules = new ODVRules({
+  test('shared ODValidatorRules instance works correctly across multiple validators', () => {
+    const rules = new ODValidatorRules({
       email: { type: 'string', required: true, special: 'email' },
     } as const)
 
-    const v1 = new ODVValidator(rules, { exceptionMode: false, strictMode: false })
-    const v2 = new ODVValidator(rules, { exceptionMode: false, strictMode: false })
+    const v1 = new ODValidator(rules, { exceptionMode: false, strictMode: false })
+    const v2 = new ODValidator(rules, { exceptionMode: false, strictMode: false })
 
     v1.validate({ email: 'bad' })
     v2.validate({ email: 'good@example.com' })
@@ -37,12 +37,12 @@ describe('concurrent validator usage', () => {
     expect(v2.data).toEqual({ email: 'good@example.com' })
   })
 
-  test('reusing the same ODVValidator instance resets state between calls', () => {
-    const rules = new ODVRules({
+  test('reusing the same ODValidator instance resets state between calls', () => {
+    const rules = new ODValidatorRules({
       name: { type: 'string', required: true },
     } as const)
 
-    const validator = new ODVValidator(rules, { exceptionMode: false, strictMode: false })
+    const validator = new ODValidator(rules, { exceptionMode: false, strictMode: false })
 
     // First call: invalid
     validator.validate({})
@@ -100,18 +100,18 @@ describe('concurrent validator usage', () => {
   })
 
   test('shared rules instance does not corrupt isValidated flag across validators', () => {
-    const rules = new ODVRules({
+    const rules = new ODValidatorRules({
       x: { type: 'integer' },
     } as const)
 
     expect(rules.isValidated).toBe(false)
 
-    const v1 = new ODVValidator(rules, { exceptionMode: false, strictMode: false })
+    const v1 = new ODValidator(rules, { exceptionMode: false, strictMode: false })
     v1.validate({ x: 1 })
     expect(rules.isValidated).toBe(true)
 
     // Second validator reuses the already-validated rules
-    const v2 = new ODVValidator(rules, { exceptionMode: false, strictMode: false })
+    const v2 = new ODValidator(rules, { exceptionMode: false, strictMode: false })
     v2.validate({ x: 2 })
     expect(v2.data).toEqual({ x: 2 })
     expect(Object.keys(v2.errors).length).toBe(0)

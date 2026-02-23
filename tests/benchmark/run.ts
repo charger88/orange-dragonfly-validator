@@ -1,4 +1,4 @@
-import { ODVRules, ODVRulesSchema, ODVValidator } from '../../src'
+import { ODValidatorRules, ODValidatorRulesSchema, ODValidator } from '../../src'
 import { inputs } from './inputs'
 
 const t = Date.now()
@@ -14,11 +14,11 @@ const SCHEMA = {
     vaccinated: { required: true, type: 'boolean' },
     perks: { required: true, type: 'array', children: { '*': { type: 'string', min: 1, max: 10 } } },
     comment: { type: 'string' },
-} as const satisfies ODVRulesSchema
+} as const satisfies ODValidatorRulesSchema
 
 for (let i = 0; i < INITS; i++) {
-  const validatorRules = new ODVRules(SCHEMA)
-  const validator = new ODVValidator(validatorRules, { exceptionMode: false })
+  const validatorRules = new ODValidatorRules(SCHEMA)
+  const validator = new ODValidator(validatorRules, { exceptionMode: false })
     for (let j = 0; j < PER_INIT; j++) {
         for (const input of inputs) {
             validator.validate(input)

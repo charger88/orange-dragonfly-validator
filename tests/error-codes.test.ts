@@ -1,4 +1,4 @@
-import { parse, safeParse, ODVException, ErrorCode } from '../src/index'
+import { parse, safeParse, ODValidatorException, ErrorCode } from '../src/index'
 
 describe('structured error entries', () => {
   test('error entry has code, message, and params', () => {
@@ -94,7 +94,7 @@ describe('.info backward compat getter', () => {
       parse({ val: { type: 'string', required: true } }, {})
       throw new Error('Should have thrown')
     } catch (e) {
-      const msgs = (e as ODVException).info
+      const msgs = (e as ODValidatorException).info
       expect(msgs.val).toEqual(['Parameter required'])
     }
   })
@@ -104,7 +104,7 @@ describe('.info backward compat getter', () => {
       parse({ val: { type: 'string', min: 100, pattern: /^[0-9]+$/ } }, { val: 'abc' })
       throw new Error('Should have thrown')
     } catch (e) {
-      const msgs = (e as ODVException).info
+      const msgs = (e as ODValidatorException).info
       expect(msgs.val.length).toBe(2)
       expect(typeof msgs.val[0]).toBe('string')
       expect(typeof msgs.val[1]).toBe('string')

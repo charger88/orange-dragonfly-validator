@@ -1,17 +1,17 @@
-import type { ODVRuleSchema, ODVRulesSchema, ODVPerTypeRuleSchema, ODVValueType } from './types'
-import { ODVRules } from './rules'
+import type { ODValidatorRuleSchema, ODValidatorRulesSchema, ODValidatorPerTypeRuleSchema, ODValidatorValueType } from './types'
+import { ODValidatorRules } from './rules'
 
 /**
- * Fluent builder for a single validation rule ({@link ODVRuleSchema}).
+ * Fluent builder for a single validation rule ({@link ODValidatorRuleSchema}).
  *
  * @example
  * ```ts
- * new ODVPropertyBuilder().required().string().min(1).max(100)
+ * new ODValidatorPropertyBuilder().required().string().min(1).max(100)
  * ```
  */
-export class ODVPropertyBuilder {
-  private _types: ODVValueType[] = []
-  private _rule: ODVRuleSchema = {}
+export class ODValidatorPropertyBuilder {
+  private _types: ODValidatorValueType[] = []
+  private _rule: ODValidatorRuleSchema = {}
 
   // --- Type methods ---
 
@@ -50,7 +50,7 @@ export class ODVPropertyBuilder {
     return this
   }
 
-  type(t: ODVValueType | ODVValueType[]): this {
+  type(t: ODValidatorValueType | ODValidatorValueType[]): this {
     if (Array.isArray(t)) {
       this._types.push(...t)
     } else {
@@ -113,18 +113,18 @@ export class ODVPropertyBuilder {
 
   // --- Nested ---
 
-  children(configure: (builder: ODVSchemaBuilder) => ODVSchemaBuilder): this {
-    const childBuilder = new ODVSchemaBuilder()
+  children(configure: (builder: ODValidatorSchemaBuilder) => ODValidatorSchemaBuilder): this {
+    const childBuilder = new ODValidatorSchemaBuilder()
     configure(childBuilder)
     this._rule.children = childBuilder.toSchema()
     return this
   }
 
-  perType(typeName: string, configure: (builder: ODVPropertyBuilder) => ODVPropertyBuilder): this {
+  perType(typeName: string, configure: (builder: ODValidatorPropertyBuilder) => ODValidatorPropertyBuilder): this {
     if (!this._rule.per_type) {
       this._rule.per_type = {}
     }
-    const propBuilder = new ODVPropertyBuilder()
+    const propBuilder = new ODValidatorPropertyBuilder()
     configure(propBuilder)
     this._rule.per_type[typeName] = propBuilder._buildPerType()
     return this
@@ -133,7 +133,7 @@ export class ODVPropertyBuilder {
   // --- Internal ---
 
   /** @internal Builds the final rule schema. */
-  _build(): ODVRuleSchema {
+  _build(): ODValidatorRuleSchema {
     const rule = { ...this._rule }
     if (this._types.length === 1) {
       rule.type = this._types[0]
@@ -144,7 +144,7 @@ export class ODVPropertyBuilder {
   }
 
   /** @internal Builds a per-type rule (no type/required/default/per_type). */
-  _buildPerType(): ODVPerTypeRuleSchema {
+  _buildPerType(): ODValidatorPerTypeRuleSchema {
     const built = this._build()
     delete built.type
     delete built.required
@@ -155,44 +155,44 @@ export class ODVPropertyBuilder {
 }
 
 /**
- * Fluent builder for a validation schema ({@link ODVRulesSchema}).
+ * Fluent builder for a validation schema ({@link ODValidatorRulesSchema}).
  *
  * @example
  * ```ts
- * const rules = new ODVSchemaBuilder()
+ * const rules = new ODValidatorSchemaBuilder()
  *   .property('name', p => p.required().string().min(1))
  *   .property('age', p => p.integer().min(0))
  *   .strict()
  *   .complete()
  * ```
  */
-export class ODVSchemaBuilder {
-  private _schema: ODVRulesSchema = {}
+export class ODValidatorSchemaBuilder {
+  private _schema: ODValidatorRulesSchema = {}
   
-  /** Creates a new {@link ODVSchemaBuilder} for fluent schema construction. */
-  static create(): ODVSchemaBuilder {
-    return new ODVSchemaBuilder()
+  /** Creates a new {@link ODValidatorSchemaBuilder} for fluent schema construction. */
+  static create(): ODValidatorSchemaBuilder {
+    return new ODValidatorSchemaBuilder()
   }
 
   /** Add a named property rule. */
-  property(name: string, configure: (builder: ODVPropertyBuilder) => ODVPropertyBuilder): this {
-    const propBuilder = new ODVPropertyBuilder()
+  property(name: string, configure: (builder: ODValidatorPropertyBuilder) => ODValidatorPropertyBuilder): this {
+    const propBuilder = new ODValidatorPropertyBuilder()
     configure(propBuilder)
     this._schema[name] = propBuilder._build()
     return this
   }
 
   /** Set the wildcard (`*`) rule applied to every value. */
-  wildcard(configure: (builder: ODVPropertyBuilder) => ODVPropertyBuilder): this {
-    const propBuilder = new ODVPropertyBuilder()
+  wildcard(configure: (builder: ODValidatorPropertyBuilder) => ODValidatorPropertyBuilder): this {
+    const propBuilder = new ODValidatorPropertyBuilder()
     configure(propBuilder)
     this._schema['*'] = propBuilder._build()
     return this
   }
 
   /** Set the key name validator (`#`) rule. */
-  keyValidator(configure: (builder: ODVPropertyBuilder) => ODVPropertyBuilder): this {
-    const propBuilder = new ODVPropertyBuilder()
+  keyValidator(configure: (builder: ODValidatorPropertyBuilder) => ODValidatorPropertyBuilder): this {
+    const propBuilder = new ODValidatorPropertyBuilder()
     configure(propBuilder)
     this._schema['#'] = propBuilder._build()
     return this
@@ -205,12 +205,12 @@ export class ODVSchemaBuilder {
   }
 
   /** Return the built schema as a plain object. */
-  toSchema(): ODVRulesSchema {
+  toSchema(): ODValidatorRulesSchema {
     return this._schema
   }
 
-  /** Build and return an {@link ODVRules} instance. */
-  complete(): ODVRules {
-    return new ODVRules(this._schema)
+  /** Build and return an {@link ODValidatorRules} instance. */
+  complete(): ODValidatorRules {
+    return new ODValidatorRules(this._schema)
   }
 }

@@ -15,15 +15,15 @@ export const ErrorCode = {
 } as const
 
 /** Union of all possible error code string literals. */
-export type ODVErrorCode = typeof ErrorCode[keyof typeof ErrorCode]
+export type ODValidatorErrorCode = typeof ErrorCode[keyof typeof ErrorCode]
 
 /**
  * Custom message formatter function.
  * Receives an error code and contextual parameters, returns a human-readable message string.
  */
-export type ODVMessageFormatter = (code: ODVErrorCode, params: Record<string, unknown>) => string
+export type ODValidatorMessageFormatter = (code: ODValidatorErrorCode, params: Record<string, unknown>) => string
 
-export const DEFAULT_MESSAGES: Record<ODVErrorCode, (params: Record<string, unknown>) => string> = {
+export const DEFAULT_MESSAGES: Record<ODValidatorErrorCode, (params: Record<string, unknown>) => string> = {
   REQUIRED: () => 'Parameter required',
   NOT_ALLOWED: () => 'Parameter not allowed',
   TYPE_MISMATCH: (p) => `Incorrect type: ${p.expected} required, ${p.actual} provided`,

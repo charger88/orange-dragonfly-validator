@@ -1,4 +1,4 @@
-import { safeParse, parse, isSafeKey, ODVRules, ODVValidator } from '../src/index'
+import { safeParse, parse, isSafeKey, ODValidatorRules, ODValidator } from '../src/index'
 
 const opts = { strictMode: false } as const
 

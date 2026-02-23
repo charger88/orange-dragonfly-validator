@@ -1,5 +1,5 @@
 import validate from '../src/index'
-import { ODVException } from '../src/index'
+import { ODValidatorException } from '../src/index'
 
 describe('exception mode', () => {
   test('exception mode true (default) throws on failure', () => {
@@ -8,15 +8,15 @@ describe('exception mode', () => {
     }).toThrow('Validation failed')
   })
 
-  test('exception mode true throws ODVException with info', () => {
+  test('exception mode true throws ODValidatorException with info', () => {
     try {
       validate({ val: { type: 'string' } }, { val: 123 })
       throw new Error('Should have thrown')
     } catch (e) {
-      expect((e as ODVException).message).toBe('Validation failed')
-      expect((e as ODVException).info).toBeDefined()
-      expect((e as ODVException).info.val).toBeDefined()
-      expect((e as ODVException).info.val.length).toBeGreaterThan(0)
+      expect((e as ODValidatorException).message).toBe('Validation failed')
+      expect((e as ODValidatorException).info).toBeDefined()
+      expect((e as ODValidatorException).info.val).toBeDefined()
+      expect((e as ODValidatorException).info.val.length).toBeGreaterThan(0)
     }
   })
 
@@ -43,7 +43,7 @@ describe('errors_prefix', () => {
       validate({ val: { type: 'string', required: true } }, {}, { errors_prefix: 'form.' })
       throw new Error('Should have thrown')
     } catch (e) {
-      expect((e as ODVException).info['form.val']).toEqual(['Parameter required'])
+      expect((e as ODValidatorException).info['form.val']).toEqual(['Parameter required'])
     }
   })
 
@@ -56,7 +56,7 @@ describe('errors_prefix', () => {
       )
       throw new Error('Should have thrown')
     } catch (e) {
-      expect((e as ODVException).info['input.user.name']).toEqual(['Parameter required'])
+      expect((e as ODValidatorException).info['input.user.name']).toEqual(['Parameter required'])
     }
   })
 
@@ -65,7 +65,7 @@ describe('errors_prefix', () => {
       validate({ val: { type: 'string', required: true } }, {})
       throw new Error('Should have thrown')
     } catch (e) {
-      expect((e as ODVException).info.val).toEqual(['Parameter required'])
+      expect((e as ODValidatorException).info.val).toEqual(['Parameter required'])
     }
   })
 })
@@ -76,7 +76,7 @@ describe('errorsPrefix', () => {
       validate({ val: { type: 'string', required: true } }, {}, { errorsPrefix: 'form.' })
       throw new Error('Should have thrown')
     } catch (e) {
-      expect((e as ODVException).info['form.val']).toEqual(['Parameter required'])
+      expect((e as ODValidatorException).info['form.val']).toEqual(['Parameter required'])
     }
   })
 
@@ -89,7 +89,7 @@ describe('errorsPrefix', () => {
       )
       throw new Error('Should have thrown')
     } catch (e) {
-      expect((e as ODVException).info['input.user.name']).toEqual(['Parameter required'])
+      expect((e as ODValidatorException).info['input.user.name']).toEqual(['Parameter required'])
     }
   })
 
@@ -98,7 +98,7 @@ describe('errorsPrefix', () => {
       validate({ val: { type: 'string', required: true } }, {})
       throw new Error('Should have thrown')
     } catch (e) {
-      expect((e as ODVException).info.val).toEqual(['Parameter required'])
+      expect((e as ODValidatorException).info.val).toEqual(['Parameter required'])
     }
   })
 })
@@ -109,8 +109,8 @@ describe('multiple errors on same field', () => {
       validate({ val: { type: 'string', min: 5, pattern: /^[a-z]+$/ } }, { val: 123 })
       throw new Error('Should have thrown')
     } catch (e) {
-      expect((e as ODVException).info.val.length).toBe(1)
-      expect((e as ODVException).info.val[0]).toContain('Incorrect type')
+      expect((e as ODValidatorException).info.val.length).toBe(1)
+      expect((e as ODValidatorException).info.val[0]).toContain('Incorrect type')
     }
   })
 
@@ -119,7 +119,7 @@ describe('multiple errors on same field', () => {
       validate({ val: { type: 'string', min: 100, pattern: /^[0-9]+$/ } }, { val: 'abc' })
       throw new Error('Should have thrown')
     } catch (e) {
-      expect((e as ODVException).info.val.length).toBe(2)
+      expect((e as ODValidatorException).info.val.length).toBe(2)
     }
   })
 })
@@ -134,10 +134,10 @@ describe('multiple fields with errors', () => {
       }, {})
       throw new Error('Should have thrown')
     } catch (e) {
-      expect(Object.keys((e as ODVException).info).length).toBe(3)
-      expect((e as ODVException).info.a).toBeDefined()
-      expect((e as ODVException).info.b).toBeDefined()
-      expect((e as ODVException).info.c).toBeDefined()
+      expect(Object.keys((e as ODValidatorException).info).length).toBe(3)
+      expect((e as ODValidatorException).info.a).toBeDefined()
+      expect((e as ODValidatorException).info.b).toBeDefined()
+      expect((e as ODValidatorException).info.c).toBeDefined()
     }
   })
 })

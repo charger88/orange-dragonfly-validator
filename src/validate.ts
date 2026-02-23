@@ -1,6 +1,6 @@
-import type { ODVRulesSchema, ODVValidateOptions, ODVOptions } from './types'
-import { ODVValidator } from './validator'
-import { ODVRules } from './rules'
+import type { ODValidatorRulesSchema, ODValidatorValidateOptions, ODValidatorOptions } from './types'
+import { ODValidator } from './validator'
+import { ODValidatorRules } from './rules'
 
 /**
  * Standalone validation function. Creates a one-off validator and runs it.
@@ -35,13 +35,13 @@ import { ODVRules } from './rules'
  *
  * @returns The validated data object on success, or `false` on failure (unless exception mode is on).
  */
-const validate = function(rules: ODVRulesSchema, input: Record<string, unknown>, options: ODVValidateOptions = {}): Record<string, unknown> | unknown[] | false {
-  const validatorRules = new ODVRules(rules)
-  const constructorOptions: ODVOptions = {}
+const validate = function(rules: ODValidatorRulesSchema, input: Record<string, unknown>, options: ODValidatorValidateOptions = {}): Record<string, unknown> | unknown[] | false {
+  const validatorRules = new ODValidatorRules(rules)
+  const constructorOptions: ODValidatorOptions = {}
   if (options.strict !== undefined) constructorOptions.strictMode = options.strict
   if (options.exception !== undefined) constructorOptions.exceptionMode = options.exception
   if (options.messages !== undefined) constructorOptions.messageFormatter = options.messages
-  const validator = new ODVValidator(validatorRules, constructorOptions)
+  const validator = new ODValidator(validatorRules, constructorOptions)
   const result = validator.validate(input, options?.errorsPrefix ?? options.errors_prefix ?? '')
   if (result === false) return false
   return validator.data!
