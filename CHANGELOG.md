@@ -13,7 +13,7 @@ All notable changes to this project will be documented in this file.
 - Renamed classes from `ODV...` to `ODValidator...` to match naming of classes in other
 Orange Dragonfly libraries
 - Removed deprecated `validate` function (use `parse` and `safeParse` instead)
-
+- Updated ESlint version and configuration
 
 ## [0.9.0] - 2/17/2026
 

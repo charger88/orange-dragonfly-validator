@@ -1,6 +1,6 @@
-import js from "@eslint/js"
-import globals from "globals"
-import tseslint from "typescript-eslint"
+import js from '@eslint/js'
+import globals from 'globals'
+import tseslint from 'typescript-eslint'
 
 export default [
   js.configs.recommended,
@@ -8,7 +8,7 @@ export default [
   {
     languageOptions: {
       ecmaVersion: 2021,
-      sourceType: "module",
+      sourceType: 'module',
       globals: {
         ...globals.node,
       },
@@ -16,21 +16,22 @@ export default [
     plugins: {
     },
     rules: {
-      "semi": ["error", "never"],
-      "quotes": ["error", "single", { avoidEscape: true }],
-      "comma-dangle": ["error", "always-multiline"],
-      "space-before-function-paren": ["error", "never"],
+      'semi': ['error', 'never'],
+      'quotes': ['error', 'single', { avoidEscape: true }],
+      'comma-dangle': ['error', 'always-multiline'],
+      'space-before-function-paren': ['error', 'never'],
+      'indent': ['error', 2, { SwitchCase: 1 }],
     },
   },
   {
-    files: ["tests/**/*.ts"],
+    files: ['tests/**/*.ts'],
     rules: {
-      "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-unused-vars": "off",
-      "@typescript-eslint/no-require-imports": "off",
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
   {
-    ignores: ["dist/**", "node_modules/**", "jest.config.cjs"],
+    ignores: ['dist/**', 'node_modules/**', 'jest.config.cjs'],
   },
 ]
