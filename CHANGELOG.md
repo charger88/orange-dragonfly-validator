@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.1] - 3/1/2026
+
+### Added
+
+- `createValidator` function for a more concise way to create reusable validators
+
+### Fixed
+
+- Insufficient validation for nested schemas
+- Input object mutation during validation (input is now never modified)
+- Various edge cases in data cloning and sanitization
+
+### Changed
+
+- Performance improvements: precomputed caches for schema keys and transform detection, reduced allocations in hot paths
+
 ## [1.0.0] - 2/23/2026
 
 ### Added
