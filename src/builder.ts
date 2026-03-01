@@ -1,5 +1,6 @@
 import type { ODValidatorRuleSchema, ODValidatorRulesSchema, ODValidatorPerTypeRuleSchema, ODValidatorValueType } from './types'
 import { ODValidatorRules } from './rules'
+import { assertSafeKey } from './sanitize'
 
 /**
  * Fluent builder for a single validation rule ({@link ODValidatorRuleSchema}).
@@ -121,6 +122,7 @@ export class ODValidatorPropertyBuilder {
   }
 
   perType(typeName: string, configure: (builder: ODValidatorPropertyBuilder) => ODValidatorPropertyBuilder): this {
+    assertSafeKey(typeName, 'schema', 'per_type')
     if (!this._rule.per_type) {
       this._rule.per_type = {}
     }
@@ -176,6 +178,7 @@ export class ODValidatorSchemaBuilder {
 
   /** Add a named property rule. */
   property(name: string, configure: (builder: ODValidatorPropertyBuilder) => ODValidatorPropertyBuilder): this {
+    assertSafeKey(name, 'schema')
     const propBuilder = new ODValidatorPropertyBuilder()
     configure(propBuilder)
     this._schema[name] = propBuilder._build()

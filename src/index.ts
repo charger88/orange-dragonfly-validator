@@ -3,7 +3,7 @@ import type { ODValidatorErrorCode, ODValidatorMessageFormatter } from './error-
 import type { ODValidatorInfer } from './infer'
 import type { SafeParseResult } from './parse'
 import type { JsonSchema, FromJsonSchemaResult } from './json-schema'
-import { ODValidatorException, ODValidatorRulesException } from './exceptions'
+import { ODValidatorException, ODValidatorRulesException, ODValidatorSecurityException } from './exceptions'
 import { ODValidator } from './validator'
 import { ODValidatorRules } from './rules'
 import { ODValidatorRule } from './rule'
@@ -28,6 +28,7 @@ export {
   ODValidatorRule,
   ODValidatorException,
   ODValidatorRulesException,
+  ODValidatorSecurityException,
   ODValidatorSchemaBuilder,
   ODValidatorPropertyBuilder,
   ErrorCode,

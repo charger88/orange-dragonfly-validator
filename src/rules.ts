@@ -1,13 +1,15 @@
-import type { ODValidatorRulesSchema, ODValidatorRuleSchema } from './types'
+import type { ODValidatorRulesSchema, ODValidatorRuleSchema, ODValidatorErrors } from './types'
 import { ODValidatorException } from './exceptions'
 import { ODValidatorRule } from './rule'
 import { ODValidator } from './validator'
 import { RULES_SCHEMA, RULES_OPTIONS_SCHEMA } from './schemas'
 import { deepCloneSchema } from './clone'
-import { isSafeKey } from './sanitize'
+import { assertNoPoisonedKeys, isSafeKey } from './sanitize'
 
 /** Meta-keys that are not field names (mirrors META_KEYS in validator.ts). */
 const SCHEMA_META_KEYS = new Set(['@', '#', '*'])
+const RULE_WRAPPER_KEY = '__odv_internal_rule__'
+const OPTION_WRAPPER_KEY = '__odv_internal_option__'
 
 /** Recursively checks whether any rule in a schema tree declares a transform or default. */
 function schemaHasTransformOrDefault(schema: ODValidatorRulesSchema): boolean {
@@ -57,10 +59,14 @@ function buildSchemaKeyCache(
 function normalizeRule(rule: ODValidatorRuleSchema): void {
   if (rule && typeof rule === 'object') {
     if ('type' in rule) {
-      rule.type = rule.type ? (typeof rule.type !== 'object' ? [rule.type] : rule.type) : null
-      if (rule.type) {
-        if ((rule.type as string[]).includes('number') && !(rule.type as string[]).includes('integer')) {
-          (rule.type as string[]).push('integer')
+      if (rule.type === undefined || rule.type === null) {
+        rule.type = null
+      } else if (typeof rule.type === 'string') {
+        rule.type = [rule.type]
+      }
+      if (Array.isArray(rule.type)) {
+        if (rule.type.includes('number') && !rule.type.includes('integer')) {
+          rule.type.push('integer')
         }
       }
     }
@@ -82,6 +88,54 @@ function normalizeSchema(schema: ODValidatorRulesSchema): void {
   }
 }
 
+function remapErrorKeys(details: ODValidatorErrors, fromKey: string, toKey: string): ODValidatorErrors {
+  const remapped: ODValidatorErrors = {}
+  for (const key of Object.keys(details)) {
+    const targetKey = key === fromKey
+      ? toKey
+      : key.startsWith(`${fromKey}.`)
+        ? `${toKey}${key.slice(fromKey.length)}`
+        : key
+    remapped[targetKey] = details[key]
+  }
+  return remapped
+}
+
+function rethrowRulesValidationError(
+  err: unknown,
+  message: string,
+  fromKey: string,
+  toKey: string,
+): never {
+  if (err instanceof ODValidatorException) {
+    ODValidatorRule.validationRulesError(message, remapErrorKeys(err.details, fromKey, toKey))
+  }
+  throw err
+}
+
+function validateWrappedRule(
+  ruleKey: string,
+  ruleValue: unknown,
+  rulesValidator: ODValidator,
+): void {
+  try {
+    rulesValidator.validate({ [RULE_WRAPPER_KEY]: ruleValue } as Record<string, unknown>)
+  } catch (e) {
+    rethrowRulesValidationError(e, 'Validation rules are incorrect', RULE_WRAPPER_KEY, ruleKey)
+  }
+}
+
+function validateWrappedOptions(
+  optionsValue: unknown,
+  optionsValidator: ODValidator,
+): void {
+  try {
+    optionsValidator.validate({ [OPTION_WRAPPER_KEY]: optionsValue } as Record<string, unknown>)
+  } catch (e) {
+    rethrowRulesValidationError(e, 'Validation rules options are incorrect', OPTION_WRAPPER_KEY, '@')
+  }
+}
+
 function validateSchemaNode(
   rules: ODValidatorRulesSchema,
   optionsValidator: ODValidator,
@@ -89,25 +143,24 @@ function validateSchemaNode(
 ): void {
   const clonedRules: Record<string, unknown> = { ...rules }
   if ('#' in clonedRules) {
-    clonedRules['>>>#'] = clonedRules['#']
+    validateWrappedRule('#', clonedRules['#'], rulesValidator)
     delete clonedRules['#']
   }
   if ('*' in clonedRules) {
-    clonedRules['>>>*'] = clonedRules['*']
+    validateWrappedRule('*', clonedRules['*'], rulesValidator)
     delete clonedRules['*']
   }
   if ('@' in clonedRules) {
-    try {
-      optionsValidator.validate(clonedRules['@'] as Record<string, unknown>)
-    } catch (e) {
-      ODValidatorRule.validationRulesError('Validation rules options are incorrect', (e as ODValidatorException).details)
-    }
+    validateWrappedOptions(clonedRules['@'], optionsValidator)
     delete clonedRules['@']
   }
   try {
     rulesValidator.validate(clonedRules as Record<string, unknown>)
   } catch (e) {
-    ODValidatorRule.validationRulesError('Validation rules are incorrect', (e as ODValidatorException).details)
+    if (e instanceof ODValidatorException) {
+      ODValidatorRule.validationRulesError('Validation rules are incorrect', e.details)
+    }
+    throw e
   }
 
   for (const key of Object.keys(rules)) {
@@ -169,8 +222,14 @@ export class ODValidatorRules<S extends ODValidatorRulesSchema = ODValidatorRule
    * @throws {ODValidatorRulesException} If the schema is invalid.
    */
   static validate(rules: ODValidatorRulesSchema): void {
+    assertNoPoisonedKeys(rules, 'schema')
     const optionsValidator = ODValidator.createInternal(
-      new ODValidatorRules(RULES_OPTIONS_SCHEMA as ODValidatorRulesSchema),
+      new ODValidatorRules({
+        [OPTION_WRAPPER_KEY]: {
+          type: ['object'],
+          children: RULES_OPTIONS_SCHEMA as ODValidatorRulesSchema,
+        },
+      }),
       { strictMode: true },
     )
     const rulesValidator = ODValidator.createInternal(
@@ -185,6 +244,7 @@ export class ODValidatorRules<S extends ODValidatorRulesSchema = ODValidatorRule
    * Normalization converts single-type strings to arrays and adds `"integer"` when `"number"` is present.
    */
   static normalize(rules: ODValidatorRulesSchema): ODValidatorRulesSchema {
+    assertNoPoisonedKeys(rules, 'schema')
     const cloned = deepCloneSchema(rules)
     normalizeSchema(cloned)
     return cloned

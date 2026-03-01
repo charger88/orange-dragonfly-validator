@@ -42,3 +42,21 @@ export class ODValidatorRulesException extends ODValidatorException {
     this.name = 'ODValidatorRulesException'
   }
 }
+
+/**
+ * Thrown when validation input or schema contains a poisoned key that could be
+ * used for prototype pollution.
+ */
+export class ODValidatorSecurityException extends Error {
+  readonly source: 'input' | 'schema'
+  readonly key: string
+  readonly path: string
+
+  constructor(source: 'input' | 'schema', key: string, path: string) {
+    super(`Unsafe key "${key}" is not allowed in ${source} at "${path}"`)
+    this.name = 'ODValidatorSecurityException'
+    this.source = source
+    this.key = key
+    this.path = path
+  }
+}

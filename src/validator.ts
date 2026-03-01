@@ -3,10 +3,11 @@ import type { ODValidatorErrorCode, ODValidatorMessageFormatter } from './error-
 import type { JsonSchema } from './json-schema'
 import { ErrorCode, DEFAULT_MESSAGES } from './error-codes'
 import { ODValidatorException } from './exceptions'
+import { cloneDefaultValue } from './clone'
 import { ODValidatorRule } from './rule'
 import { ODValidatorRules } from './rules'
 import { fromJsonSchema } from './json-schema'
-import { isSafeKey } from './sanitize'
+import { assertNoPoisonedKeys, isSafeKey } from './sanitize'
 
 const META_KEYS = new Set(['@', '#', '*'])
 
@@ -18,6 +19,10 @@ const META_KEYS = new Set(['@', '#', '*'])
 function hasKeys(obj: object): boolean {
   for (const _ in obj) return true
   return false
+}
+
+function toSecurityPathPrefix(prefix: string): string {
+  return prefix.endsWith('.') ? prefix.slice(0, -1) : prefix
 }
 
 interface ResolvedOptions {
@@ -111,6 +116,7 @@ export class ODValidator {
     code: ODValidatorErrorCode,
     params: Record<string, unknown>,
   ): void {
+    if (!isSafeKey(errKey)) return
     if (!Object.hasOwn(this.errors, errKey)) {
       this.errors[errKey] = []
     }
@@ -141,16 +147,11 @@ export class ODValidator {
         ODValidatorRule.applyRule(hashRule, dataKey, errKeyPrefix + '#key', this.errors, processChildren, messageFormatter)
       }
       if (starRule) {
-        const idx = isArray ? i : undefined
-        const currentValue = idx !== undefined ? (data as unknown[])[idx] : (data as Record<string, unknown>)[dataKey]
+        const currentValue = Reflect.get(data, dataKey)
         const runtimeState = { applyTransformed: false }
         const processedValue = ODValidatorRule.applyRule(starRule, currentValue, errKeyPrefix, this.errors, processChildren, messageFormatter, runtimeState)
         if (runtimeState.applyTransformed) {
-          if (idx !== undefined) {
-            (data as unknown[])[idx] = processedValue
-          } else {
-            (data as Record<string, unknown>)[dataKey] = processedValue
-          }
+          Reflect.set(data, dataKey, processedValue)
         }
       }
     }
@@ -174,8 +175,9 @@ export class ODValidator {
     if (isStrictMode) {
       const definedKeys = cached
         ? cached.keySet
-        : new Set(Object.keys(workingRules).filter(k => !META_KEYS.has(k)))
+        : new Set(Object.keys(workingRules).filter(k => !META_KEYS.has(k) && isSafeKey(k)))
       for (const key in data) {
+        if (!isSafeKey(key)) continue
         if (Object.hasOwn(data, key) && !definedKeys.has(key)) {
           this.addError(errorsPrefix + key, ErrorCode.NOT_ALLOWED, {})
         }
@@ -195,7 +197,7 @@ export class ODValidator {
       for (const key of cached.keys) {
         // isSafeKey already filtered at cache-build time — no per-call check needed
         const ruleSchema = workingRules[key] as ODValidatorRuleSchema
-        if (ruleSchema.default !== undefined && !Object.hasOwn(data, key)) data[key] = ruleSchema.default
+        if (ruleSchema.default !== undefined && !Object.hasOwn(data, key)) data[key] = cloneDefaultValue(ruleSchema.default)
         if (Object.hasOwn(data, key)) {
           const runtimeState = { applyTransformed: false }
           const processedValue = ODValidatorRule.applyRule(ruleSchema, data[key], errorsPrefix + key, this.errors, processChildren, messageFormatter, runtimeState)
@@ -212,7 +214,7 @@ export class ODValidator {
         if (key === '@' || key === '#' || key === '*') continue
         const ruleSchema = workingRules[key] as ODValidatorRuleSchema
         if (!isSafeKey(key)) continue
-        if (ruleSchema.default !== undefined && !Object.hasOwn(data, key)) data[key] = ruleSchema.default
+        if (ruleSchema.default !== undefined && !Object.hasOwn(data, key)) data[key] = cloneDefaultValue(ruleSchema.default)
         if (Object.hasOwn(data, key)) {
           const runtimeState = { applyTransformed: false }
           const processedValue = ODValidatorRule.applyRule(ruleSchema, data[key], errorsPrefix + key, this.errors, processChildren, messageFormatter, runtimeState)
@@ -227,8 +229,7 @@ export class ODValidator {
   }
 
   private _processChildren(childRules: ODValidatorRulesSchema, childInput: Record<string, unknown>, prefix: string): void {
-    const childData = this.processRules(childRules, childInput, prefix)
-    Object.assign(childInput, childData)
+    this.processRules(childRules, childInput, prefix)
   }
 
   /** @internal Core processing logic. Operates on already-normalized rules, no cloning. */
@@ -251,6 +252,7 @@ export class ODValidator {
    */
   process(rules: ODValidatorRulesSchema, input: Record<string, unknown>, errorsPrefix = ''): Record<string, unknown> | unknown[] {
     const workingRules = ODValidatorRules.normalize(rules)
+    assertNoPoisonedKeys(input, 'input', toSecurityPathPrefix(errorsPrefix))
     if (!this._options.internalCall) {
       ODValidatorRules.validate(workingRules)
     }
@@ -274,6 +276,7 @@ export class ODValidator {
       ODValidatorRules.validate(this.rules.normalizedSchema)
       this.rules.markValidated()
     }
+    assertNoPoisonedKeys(input, 'input', toSecurityPathPrefix(errorsPrefix))
     const data = this._options.internalCall || !this.rules.hasTransformOrDefault
       ? input
       : structuredClone(input)

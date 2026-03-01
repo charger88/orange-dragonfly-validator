@@ -1,4 +1,5 @@
 import type { ODValidatorRuleSchema, ODValidatorPerTypeRuleSchema, ODValidatorRulesSchema } from './types'
+import { isSafeKey } from './sanitize'
 
 // Manual deep clone is required because structuredClone cannot handle
 // function references (the `transform` property). Functions are inherently
@@ -12,6 +13,18 @@ function clonePattern(pattern: RegExp | string | undefined): RegExp | string | u
   return pattern
 }
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+export function cloneDefaultValue(value: unknown): unknown {
+  try {
+    return structuredClone(value)
+  } catch {
+    return value
+  }
+}
+
 export function deepClonePerTypeRuleDef(def: ODValidatorPerTypeRuleSchema): ODValidatorPerTypeRuleSchema {
   const clone: ODValidatorPerTypeRuleSchema = { ...def }
   if (def.in) clone.in = [...def.in]
@@ -21,7 +34,7 @@ export function deepClonePerTypeRuleDef(def: ODValidatorPerTypeRuleSchema): ODVa
   if (def.pattern !== undefined) {
     clone.pattern = clonePattern(def.pattern)
   }
-  if (def.children) {
+  if (isPlainRecord(def.children)) {
     clone.children = deepCloneSchema(def.children)
   }
   return clone
@@ -32,6 +45,9 @@ export function deepCloneRuleDef(def: ODValidatorRuleSchema): ODValidatorRuleSch
   if (Array.isArray(def.type)) {
     clone.type = [...def.type]
   }
+  if (def.default !== undefined) {
+    clone.default = cloneDefaultValue(def.default)
+  }
   if (def.in) clone.in = [...def.in]
   if (Array.isArray(def['in:public'])) {
     clone['in:public'] = [...def['in:public']]
@@ -39,13 +55,17 @@ export function deepCloneRuleDef(def: ODValidatorRuleSchema): ODValidatorRuleSch
   if (def.pattern !== undefined) {
     clone.pattern = clonePattern(def.pattern)
   }
-  if (def.per_type) {
+  if (isPlainRecord(def.per_type)) {
     clone.per_type = {}
     for (const key of Object.keys(def.per_type)) {
-      clone.per_type[key] = deepClonePerTypeRuleDef(def.per_type[key])
+      if (!isSafeKey(key)) continue
+      const perTypeRule = def.per_type[key]
+      clone.per_type[key] = isPlainRecord(perTypeRule)
+        ? deepClonePerTypeRuleDef(perTypeRule as ODValidatorPerTypeRuleSchema)
+        : perTypeRule as unknown as ODValidatorPerTypeRuleSchema
     }
   }
-  if (def.children) {
+  if (isPlainRecord(def.children)) {
     clone.children = deepCloneSchema(def.children)
   }
   return clone
@@ -53,11 +73,19 @@ export function deepCloneRuleDef(def: ODValidatorRuleSchema): ODValidatorRuleSch
 
 export function deepCloneSchema(schema: ODValidatorRulesSchema): ODValidatorRulesSchema {
   const clone: ODValidatorRulesSchema = {}
+  const source = schema as Record<string, unknown>
   for (const key of Object.keys(schema)) {
     if (key === '@') {
-      clone['@'] = { ...schema['@'] }
+      const options = source['@']
+      clone['@'] = isPlainRecord(options)
+        ? { ...options }
+        : options as ODValidatorRulesSchema['@']
     } else {
-      clone[key] = deepCloneRuleDef(schema[key] as ODValidatorRuleSchema)
+      if (!isSafeKey(key)) continue
+      const rule = source[key]
+      clone[key] = isPlainRecord(rule)
+        ? deepCloneRuleDef(rule as ODValidatorRuleSchema)
+        : rule as ODValidatorRuleSchema
     }
   }
   return clone

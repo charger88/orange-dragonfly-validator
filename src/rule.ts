@@ -4,6 +4,7 @@ import { ErrorCode, DEFAULT_MESSAGES } from './error-codes'
 import { ODValidatorRulesException } from './exceptions'
 import { SPECIAL_VALIDATORS, SPECIAL_MAX_LENGTHS } from './special-validators'
 import { deepCloneRuleDef } from './clone'
+import { assertNoPoisonedKeys, isSafeKey } from './sanitize'
 
 const patternCache = new Map<string, RegExp>()
 
@@ -42,6 +43,7 @@ function addErrorToMap(
   messageFormatter: ODValidatorMessageFormatter | undefined,
   params: Record<string, unknown> = {},
 ): void {
+  if (!isSafeKey(errorsKey)) return
   if (!Object.hasOwn(errors, errorsKey)) {
     errors[errorsKey] = []
   }
@@ -75,7 +77,7 @@ function checkMinMax(
     if (max !== undefined && (minMaxValue > max)) addErrorToMap(errors, errorsKey, ErrorCode.MAX_VIOLATION, messageFormatter, { max, actual: minMaxValue })
   } else if (def.type === undefined || def.type === null || (def.type as string[]).length < 2) {
     const info: ODValidatorErrors = {}
-    info[errorsKey] = [{ code: ErrorCode.MIN_MAX_NOT_APPLICABLE, message: `${valueType} can not be validated for "min" and "max"`, params: { actual: valueType } }]
+    addErrorToMap(info, errorsKey, ErrorCode.MIN_MAX_NOT_APPLICABLE, undefined, { actual: valueType })
     throwRulesError('Validation rules are incorrect', info)
   }
 }
@@ -91,7 +93,7 @@ function checkInList(
 ): void {
   if (valueType === 'object') {
     const info: ODValidatorErrors = {}
-    info[errorsKey] = [{ code: ErrorCode.IN_NOT_APPLICABLE, message: '"in" directive is not applicable for objects', params: {} }]
+    addErrorToMap(info, errorsKey, ErrorCode.IN_NOT_APPLICABLE, undefined)
     throwRulesError('Validation rules are incorrect', info)
   } else if (valueType === 'array') {
     if ((value as unknown[]).filter(v => !inList.includes(v)).length) {
@@ -160,7 +162,7 @@ function checkChildren(
   } else {
     if (def.type === undefined || !(def.type as string[]).filter(t => !['object', 'array'].includes(t)).length) {
       const info: ODValidatorErrors = {}
-      info[errorsKey] = [{ code: ErrorCode.CHILDREN_TYPE_ERROR, message: `Can't validate children of type ${valueType}`, params: { actual: valueType } }]
+      addErrorToMap(info, errorsKey, ErrorCode.CHILDREN_TYPE_ERROR, undefined, { actual: valueType })
       throwRulesError('Validation rules are incorrect', info)
     }
   }
@@ -208,6 +210,7 @@ export class ODValidatorRule {
     const baseValue = def.transform !== undefined ? def.transform(originalValue) : originalValue
     const prePerTypeRule = getPerTypeRule(def, getValueType(baseValue))
     const value = prePerTypeRule?.transform !== undefined ? prePerTypeRule.transform(baseValue) : baseValue
+    assertNoPoisonedKeys(value, 'input', errorsKey)
     if (runtimeState) {
       runtimeState.applyTransformed = (
         prePerTypeRule?.transform !== undefined
@@ -219,8 +222,25 @@ export class ODValidatorRule {
     const valueType = getValueType(value)
 
     if (valueType === null) {
-      if (def.type !== undefined && def.type !== null) {
-        addErrorToMap(errors, errorsKey, ErrorCode.TYPE_MISMATCH, messageFormatter, { expected: (def.type as string[]).join(' or '), actual: 'NaN/Infinity' })
+      const hasConstraint = (
+        def.type !== undefined && def.type !== null
+      ) || def.min !== undefined
+        || def.max !== undefined
+        || def.in !== undefined
+        || def.pattern !== undefined
+        || def.special !== undefined
+        || def.children !== undefined
+        || prePerTypeRule?.min !== undefined
+        || prePerTypeRule?.max !== undefined
+        || prePerTypeRule?.in !== undefined
+        || prePerTypeRule?.pattern !== undefined
+        || prePerTypeRule?.special !== undefined
+        || prePerTypeRule?.children !== undefined
+      if (hasConstraint) {
+        const expected = def.type !== undefined && def.type !== null
+          ? (def.type as string[]).join(' or ')
+          : 'finite value'
+        addErrorToMap(errors, errorsKey, ErrorCode.TYPE_MISMATCH, messageFormatter, { expected, actual: 'NaN/Infinity' })
       }
       return value
     }
