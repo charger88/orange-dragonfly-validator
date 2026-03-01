@@ -74,6 +74,41 @@ if (result.success) {
 }
 ```
 
+### `createValidator` — recommended for repeated validation
+
+> **This is the recommended approach when you validate the same schema more than once** (e.g. in a request handler, a worker loop, or any hot path). The schema is normalised and compiled once at construction time, so each `validate()` call has no per-call setup cost.
+
+```typescript
+import { createValidator } from 'orange-dragonfly-validator'
+
+const validator = createValidator({
+  name: { type: 'string', required: true, min: 1, max: 100 },
+  email: { type: 'string', required: true, special: 'email' },
+  age: { type: 'integer', min: 0, max: 150 },
+} as const)
+
+// Create once, reuse across every request:
+app.post('/users', (req, res) => {
+  try {
+    validator.validate(req.body)
+    const data = validator.data // fully typed
+    // …
+  } catch (e) {
+    res.status(400).json(e.info)
+  }
+})
+```
+
+`createValidator` accepts the same options as `ODValidator`:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `strictMode` | `boolean` | `true` | Reject keys not defined in the schema |
+| `exceptionMode` | `boolean` | `true` | Throw `ODValidatorException` on failure instead of returning `false` |
+| `messageFormatter` | `function` | built-in | Custom `(code, params) => string` error formatter |
+
+After `validate()`, read results from `validator.data` (processed input) and `validator.errors` (field-keyed error map).
+
 ### `ODValidator` — class-based usage
 
 ```typescript

@@ -13,9 +13,11 @@ import { isSafeKey } from './sanitize'
 import { parse, safeParse, validateSchema } from './parse'
 import { fromJsonSchema, toJsonSchema } from './json-schema'
 import { ODValidatorSchemaBuilder, ODValidatorPropertyBuilder } from './builder'
+import { createValidator } from './create-validator'
 
 /** @deprecated Use {@link parse} or {@link safeParse} instead. */
 export {
+  createValidator,
   parse,
   safeParse,
   validateSchema,
