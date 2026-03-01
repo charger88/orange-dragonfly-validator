@@ -49,6 +49,16 @@ function addErrorToMap(
   errors[errorsKey].push({ code, message, params })
 }
 
+function getPerTypeRule(
+  def: ODValidatorRuleSchema,
+  valueType: ODValidatorValueType | null,
+): ODValidatorPerTypeRuleSchema | undefined {
+  if (valueType === null || def.per_type === undefined || !Object.hasOwn(def.per_type, valueType)) {
+    return undefined
+  }
+  return def.per_type[valueType]
+}
+
 function checkMinMax(
   value: unknown,
   valueType: ODValidatorValueType,
@@ -183,6 +193,7 @@ export class ODValidatorRule {
    * @param errors - Mutable error map that collects all validation failures.
    * @param processChildren - Callback to recurse into nested children schemas.
    * @param messageFormatter - Optional custom message formatter.
+   * @param runtimeState - Internal metadata about whether transformed output should be stored.
    * @returns The (possibly transformed) value.
    */
   static applyRule(
@@ -192,8 +203,19 @@ export class ODValidatorRule {
     errors: ODValidatorErrors,
     processChildren: (rules: ODValidatorRulesSchema, input: Record<string, unknown>, prefix: string) => void,
     messageFormatter?: ODValidatorMessageFormatter,
+    runtimeState?: { applyTransformed: boolean },
   ): unknown {
-    const value = def.transform !== undefined ? def.transform(originalValue) : originalValue
+    const baseValue = def.transform !== undefined ? def.transform(originalValue) : originalValue
+    const prePerTypeRule = getPerTypeRule(def, getValueType(baseValue))
+    const value = prePerTypeRule?.transform !== undefined ? prePerTypeRule.transform(baseValue) : baseValue
+    if (runtimeState) {
+      runtimeState.applyTransformed = (
+        prePerTypeRule?.transform !== undefined
+          ? (prePerTypeRule.apply_transformed ?? def.apply_transformed)
+          : def.apply_transformed
+      ) === true
+    }
+
     const valueType = getValueType(value)
 
     if (valueType === null) {
@@ -208,8 +230,7 @@ export class ODValidatorRule {
       return value
     }
 
-    // Resolve per_type overrides without mutation — read from overlay first, then base def
-    const perType: ODValidatorPerTypeRuleSchema | undefined = def.per_type !== undefined && Object.hasOwn(def.per_type, valueType) ? def.per_type[valueType] : undefined
+    const perType = getPerTypeRule(def, valueType)
     const min = perType?.min ?? def.min
     const max = perType?.max ?? def.max
     const inList = perType?.in ?? def.in

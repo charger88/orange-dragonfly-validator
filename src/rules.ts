@@ -82,6 +82,52 @@ function normalizeSchema(schema: ODValidatorRulesSchema): void {
   }
 }
 
+function validateSchemaNode(
+  rules: ODValidatorRulesSchema,
+  optionsValidator: ODValidator,
+  rulesValidator: ODValidator,
+): void {
+  const clonedRules: Record<string, unknown> = { ...rules }
+  if ('#' in clonedRules) {
+    clonedRules['>>>#'] = clonedRules['#']
+    delete clonedRules['#']
+  }
+  if ('*' in clonedRules) {
+    clonedRules['>>>*'] = clonedRules['*']
+    delete clonedRules['*']
+  }
+  if ('@' in clonedRules) {
+    try {
+      optionsValidator.validate(clonedRules['@'] as Record<string, unknown>)
+    } catch (e) {
+      ODValidatorRule.validationRulesError('Validation rules options are incorrect', (e as ODValidatorException).details)
+    }
+    delete clonedRules['@']
+  }
+  try {
+    rulesValidator.validate(clonedRules as Record<string, unknown>)
+  } catch (e) {
+    ODValidatorRule.validationRulesError('Validation rules are incorrect', (e as ODValidatorException).details)
+  }
+
+  for (const key of Object.keys(rules)) {
+    if (key === '@') continue
+    const rule = rules[key] as ODValidatorRuleSchema
+    if (!rule || typeof rule !== 'object') continue
+    if (rule.children) {
+      validateSchemaNode(rule.children, optionsValidator, rulesValidator)
+    }
+    if (rule.per_type) {
+      for (const typeKey of Object.keys(rule.per_type)) {
+        const perTypeRule = rule.per_type[typeKey]
+        if (perTypeRule?.children) {
+          validateSchemaNode(perTypeRule.children, optionsValidator, rulesValidator)
+        }
+      }
+    }
+  }
+}
+
 /**
  * Wraps a rules schema and provides static utilities for schema validation and normalization.
  */
@@ -123,32 +169,15 @@ export class ODValidatorRules<S extends ODValidatorRulesSchema = ODValidatorRule
    * @throws {ODValidatorRulesException} If the schema is invalid.
    */
   static validate(rules: ODValidatorRulesSchema): void {
-    const clonedRules: Record<string, unknown> = { ...rules }
-    if ('#' in clonedRules) {
-      clonedRules['>>>#'] = clonedRules['#']
-      delete clonedRules['#']
-    }
-    if ('*' in clonedRules) {
-      clonedRules['>>>*'] = clonedRules['*']
-      delete clonedRules['*']
-    }
-    if ('@' in clonedRules) {
-      try {
-        const validatorRules = new ODValidatorRules(RULES_OPTIONS_SCHEMA as ODValidatorRulesSchema)
-        const validator = ODValidator.createInternal(validatorRules, { strictMode: true })
-        validator.validate(clonedRules['@'] as Record<string, unknown>)
-      } catch (e) {
-        ODValidatorRule.validationRulesError('Validation rules options are incorrect', (e as ODValidatorException).details)
-      }
-      delete clonedRules['@']
-    }
-    try {
-      const validatorRules = new ODValidatorRules(RULES_SCHEMA as ODValidatorRulesSchema)
-      const validator = ODValidator.createInternal(validatorRules, { strictMode: false })
-      validator.validate(clonedRules as Record<string, unknown>)
-    } catch (e) {
-      ODValidatorRule.validationRulesError('Validation rules are incorrect', (e as ODValidatorException).details)
-    }
+    const optionsValidator = ODValidator.createInternal(
+      new ODValidatorRules(RULES_OPTIONS_SCHEMA as ODValidatorRulesSchema),
+      { strictMode: true },
+    )
+    const rulesValidator = ODValidator.createInternal(
+      new ODValidatorRules(RULES_SCHEMA as ODValidatorRulesSchema),
+      { strictMode: false },
+    )
+    validateSchemaNode(rules, optionsValidator, rulesValidator)
   }
 
   /**

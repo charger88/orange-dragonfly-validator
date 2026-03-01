@@ -60,17 +60,6 @@ export function safeParse<const S extends ODValidatorRulesSchema>(
  * @throws {ODValidatorRulesException} If the schema is invalid.
  */
 export function validateSchema(json: Record<string, unknown>): ODValidatorRulesSchema {
-  validateSchemaRecursive(json as ODValidatorRulesSchema)
+  ODValidatorRules.validate(json as ODValidatorRulesSchema)
   return json as ODValidatorRulesSchema
-}
-
-function validateSchemaRecursive(schema: ODValidatorRulesSchema): void {
-  ODValidatorRules.validate(schema)
-  for (const key of Object.keys(schema)) {
-    if (key === '@') continue
-    const rule = schema[key] as Record<string, unknown> | undefined
-    if (rule && typeof rule === 'object' && rule.children !== undefined && typeof rule.children === 'object') {
-      validateSchemaRecursive(rule.children as ODValidatorRulesSchema)
-    }
-  }
 }

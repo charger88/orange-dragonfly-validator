@@ -143,8 +143,9 @@ export class ODValidator {
       if (starRule) {
         const idx = isArray ? i : undefined
         const currentValue = idx !== undefined ? (data as unknown[])[idx] : (data as Record<string, unknown>)[dataKey]
-        const processedValue = ODValidatorRule.applyRule(starRule, currentValue, errKeyPrefix, this.errors, processChildren, messageFormatter)
-        if (starRule.apply_transformed) {
+        const runtimeState = { applyTransformed: false }
+        const processedValue = ODValidatorRule.applyRule(starRule, currentValue, errKeyPrefix, this.errors, processChildren, messageFormatter, runtimeState)
+        if (runtimeState.applyTransformed) {
           if (idx !== undefined) {
             (data as unknown[])[idx] = processedValue
           } else {
@@ -196,8 +197,9 @@ export class ODValidator {
         const ruleSchema = workingRules[key] as ODValidatorRuleSchema
         if (ruleSchema.default !== undefined && !Object.hasOwn(data, key)) data[key] = ruleSchema.default
         if (Object.hasOwn(data, key)) {
-          const processedValue = ODValidatorRule.applyRule(ruleSchema, data[key], errorsPrefix + key, this.errors, processChildren, messageFormatter)
-          if (ruleSchema.apply_transformed) {
+          const runtimeState = { applyTransformed: false }
+          const processedValue = ODValidatorRule.applyRule(ruleSchema, data[key], errorsPrefix + key, this.errors, processChildren, messageFormatter, runtimeState)
+          if (runtimeState.applyTransformed) {
             data[key] = processedValue
           }
         } else if (ruleSchema.required) {
@@ -212,8 +214,9 @@ export class ODValidator {
         if (!isSafeKey(key)) continue
         if (ruleSchema.default !== undefined && !Object.hasOwn(data, key)) data[key] = ruleSchema.default
         if (Object.hasOwn(data, key)) {
-          const processedValue = ODValidatorRule.applyRule(ruleSchema, data[key], errorsPrefix + key, this.errors, processChildren, messageFormatter)
-          if (ruleSchema.apply_transformed) {
+          const runtimeState = { applyTransformed: false }
+          const processedValue = ODValidatorRule.applyRule(ruleSchema, data[key], errorsPrefix + key, this.errors, processChildren, messageFormatter, runtimeState)
+          if (runtimeState.applyTransformed) {
             data[key] = processedValue
           }
         } else if (ruleSchema.required) {
@@ -244,14 +247,14 @@ export class ODValidator {
    * @param rules - The raw rules schema (will be normalized and validated).
    * @param input - The input data to validate.
    * @param errorsPrefix - Optional prefix prepended to error keys (useful for nested validation).
-   * @returns A shallow copy of the input with defaults applied and transforms executed.
+   * @returns A copy of the input with defaults applied and transforms executed.
    */
   process(rules: ODValidatorRulesSchema, input: Record<string, unknown>, errorsPrefix = ''): Record<string, unknown> | unknown[] {
     const workingRules = ODValidatorRules.normalize(rules)
     if (!this._options.internalCall) {
       ODValidatorRules.validate(workingRules)
     }
-    const data = this._options.internalCall ? input : (Array.isArray(input) ? [...input] : { ...input })
+    const data = this._options.internalCall ? input : structuredClone(input)
     return this.processRules(workingRules, data, errorsPrefix)
   }
 
@@ -273,7 +276,7 @@ export class ODValidator {
     }
     const data = this._options.internalCall || !this.rules.hasTransformOrDefault
       ? input
-      : Array.isArray(input) ? [...input] : { ...input }
+      : structuredClone(input)
     this._processedData = this.processRules(this.rules.normalizedSchema, data, errorsPrefix)
     if (!hasKeys(this.errors)) return true
     if (this._options.exceptionMode) {
