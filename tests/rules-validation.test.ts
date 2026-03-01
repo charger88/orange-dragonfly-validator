@@ -1,4 +1,5 @@
-import { parse, safeParse, ODValidatorRulesException } from '../src/index'
+import { parse, safeParse, ODValidatorRules, ODValidatorRulesException } from '../src/index'
+
 
 describe('invalid rules detection', () => {
   test('invalid type value in rule throws', () => {
@@ -11,6 +12,55 @@ describe('invalid rules detection', () => {
     expect(() => {
       parse({ val: { type: 'string', min: 'five' as unknown as number } }, { val: 'test' })
     }).toThrow()
+  })
+
+  test('min as non-integer in nested children throws', () => {
+    expect(() => {
+      parse(
+        {
+          user: {
+            type: 'object' as const,
+            children: {
+              name: {
+                type: 'string' as const,
+                min: 'five' as unknown as number,
+              },
+            },
+          },
+        },
+        { user: { name: 'A' } },
+        { strictMode: false },
+      )
+    }).toThrow(ODValidatorRulesException)
+  })
+
+  test('min as non-integer in nested per_type children throws', () => {
+    expect(() => {
+      parse(
+        {
+          value: {
+            type: 'object' as const,
+            children: {
+              wrapped: {
+                type: 'object' as const,
+                per_type: {
+                  object: {
+                    children: {
+                      child: {
+                        type: 'string' as const,
+                        min: 'five' as unknown as number,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        { value: { wrapped: { child: 'A' } } },
+        { strictMode: false },
+      )
+    }).toThrow(ODValidatorRulesException)
   })
 
   test('max as non-integer throws', () => {
@@ -35,6 +85,12 @@ describe('invalid rules detection', () => {
     expect(() => {
       parse({ val: { type: ['string', 'foobar'] as unknown as 'string'[] } }, { val: 'test' })
     }).toThrow()
+  })
+
+  test('type as object throws a rules exception instead of crashing during normalization', () => {
+    expect(() => {
+      parse({ val: { type: {} as unknown as 'string' } }, { val: 'test' })
+    }).toThrow(ODValidatorRulesException)
   })
 
   test('valid rules do not throw', () => {
@@ -84,5 +140,42 @@ describe('@ options validation', () => {
     expect(() => {
       parse({ '@': { strict: 'yes' as unknown as boolean }, val: { type: 'string' } }, { val: 'test' })
     }).toThrow()
+  })
+})
+
+describe('ODValidatorRules.normalize - type: null branch (lines 60-61)', () => {
+  test('normalizes type: null to null (skips integer append)', () => {
+    // type: null means "skip type checking" — normalization preserves it as null
+    const normalized = ODValidatorRules.normalize({ val: { type: null } })
+    expect((normalized.val as Record<string, unknown>).type).toBeNull()
+  })
+})
+
+describe('ODValidatorRules.validate - with # and * meta-rules', () => {
+  test('validates schema with # and * wildcard rules (types as arrays)', () => {
+    expect(() => {
+      ODValidatorRules.validate({
+        '#': { type: ['string'], pattern: /^[a-z]+$/ },
+        '*': { type: ['string'] },
+      })
+    }).not.toThrow()
+  })
+
+  test('still validates a real >>># field when # meta-rule is present', () => {
+    expect(() => {
+      ODValidatorRules.validate({
+        '#': { type: ['string'] },
+        '>>>#': { min: 'x' as unknown as number },
+      })
+    }).toThrow(ODValidatorRulesException)
+  })
+
+  test('still validates a real >>>* field when * meta-rule is present', () => {
+    expect(() => {
+      ODValidatorRules.validate({
+        '*': { type: ['string'] },
+        '>>>*': { min: 'x' as unknown as number },
+      })
+    }).toThrow(ODValidatorRulesException)
   })
 })

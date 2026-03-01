@@ -1,4 +1,4 @@
-import { parse, safeParse, ErrorCode } from '../src/index'
+import { parse, safeParse, ErrorCode, ODValidatorRules } from '../src/index'
 import type { ODValidatorRulesSchema } from '../src/index'
 
 const opts = { strictMode: false } as const
@@ -189,6 +189,25 @@ describe('per_type - with transform', () => {
     expect(passes(rules, { val: '50' })).toBe(true)
     expect(passes(rules, { val: '200' })).toBe(false)
   })
+
+  test('per_type transform with apply_transformed updates parsed value', () => {
+    const result = parse(
+      {
+        val: {
+          type: 'string' as const,
+          per_type: {
+            string: {
+              transform: (value: unknown) => (value as string).trim(),
+              apply_transformed: true,
+            },
+          },
+        },
+      },
+      { val: '  padded  ' },
+      opts,
+    )
+    expect(result.val).toBe('padded')
+  })
 })
 
 describe('per_type - with parse/safeParse', () => {
@@ -243,5 +262,36 @@ describe('per_type - schema reuse', () => {
     // Verify the limits are still separate
     expect(passes(rules, { val: 11 })).toBe(false)
     expect(passes(rules, { val: 'toolong' })).toBe(false)
+  })
+})
+
+describe('ODValidatorRules - schemaHasTransformOrDefault with per_type', () => {
+  test('per_type with transform makes hasTransformOrDefault true', () => {
+    const rules = new ODValidatorRules({
+      val: {
+        type: ['string', 'number'] as const,
+        per_type: {
+          number: { transform: (v: unknown) => Math.round(v as number) },
+        },
+      },
+    })
+    expect(rules.hasTransformOrDefault).toBe(true)
+  })
+
+  test('per_type with children containing a default makes hasTransformOrDefault true', () => {
+    // schemaHasTransformOrDefault recurses into per_type.children
+    const rules = new ODValidatorRules({
+      val: {
+        type: ['object', 'string'] as const,
+        per_type: {
+          object: {
+            children: {
+              name: { type: 'string', default: 'default-name' },
+            },
+          },
+        },
+      },
+    })
+    expect(rules.hasTransformOrDefault).toBe(true)
   })
 })

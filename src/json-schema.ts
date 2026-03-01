@@ -1,4 +1,5 @@
 import type { ODValidatorRulesSchema, ODValidatorRuleSchema, ODValidatorPerTypeRuleSchema } from './types'
+import { assertNoPoisonedKeys, isSafeKey } from './sanitize'
 
 /** Subset of JSON Schema (draft-07 / 2020-12) supported by the converter. */
 export interface JsonSchema {
@@ -240,6 +241,7 @@ function convertObjectToSchema(js: JsonSchema, path: string, warnings: string[])
 
   if (js.properties !== undefined) {
     for (const key of Object.keys(js.properties)) {
+      if (!isSafeKey(key)) continue
       const propPath = path ? `${path}.${key}` : key
       const rule = convertPropertyToRule(js.properties[key], propPath, warnings)
       if (requiredSet.has(key)) {
@@ -271,6 +273,7 @@ function convertObjectToSchema(js: JsonSchema, path: string, warnings: string[])
  */
 export function fromJsonSchema(jsonSchema: JsonSchema): FromJsonSchemaResult {
   const warnings: string[] = []
+  assertNoPoisonedKeys(jsonSchema, 'schema')
   collectWarnings(jsonSchema, '', warnings)
   const schema = convertObjectToSchema(jsonSchema, '', warnings)
   return { schema, warnings }
@@ -418,6 +421,7 @@ function schemaToJsonObject(schema: ODValidatorRulesSchema): JsonSchema {
 
   for (const key of Object.keys(schema)) {
     if (key === '@' || key === '#' || key === '*') continue
+    if (!isSafeKey(key)) continue
     const rule = schema[key] as ODValidatorRuleSchema
     if (rule.required) {
       requiredFields.push(key)
@@ -440,6 +444,7 @@ function schemaToJsonObject(schema: ODValidatorRulesSchema): JsonSchema {
  * Features without a JSON Schema equivalent (e.g. `transform`) are silently skipped.
  */
 export function toJsonSchema(schema: ODValidatorRulesSchema): JsonSchema {
+  assertNoPoisonedKeys(schema, 'schema')
   const js: JsonSchema = {
     type: 'object',
     ...schemaToJsonObject(schema),

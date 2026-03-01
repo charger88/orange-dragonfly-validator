@@ -4,10 +4,9 @@ import { ErrorCode, DEFAULT_MESSAGES } from './error-codes'
 import { ODValidatorRulesException } from './exceptions'
 import { SPECIAL_VALIDATORS, SPECIAL_MAX_LENGTHS } from './special-validators'
 import { deepCloneRuleDef } from './clone'
+import { assertNoPoisonedKeys, isSafeKey } from './sanitize'
 
 const patternCache = new Map<string, RegExp>()
-
-type AddErrorFn = (code: ODValidatorErrorCode, params?: Record<string, unknown>) => void
 
 function throwRulesError(errMsg: string, info: ODValidatorErrors): never {
   throw new ODValidatorRulesException(`${errMsg}. See "info" parameter of exception for the details`, info)
@@ -37,6 +36,31 @@ function getValueForMinOrMax(value: unknown, valueType: ODValidatorValueType): n
   return null
 }
 
+function addErrorToMap(
+  errors: ODValidatorErrors,
+  errorsKey: string,
+  code: ODValidatorErrorCode,
+  messageFormatter: ODValidatorMessageFormatter | undefined,
+  params: Record<string, unknown> = {},
+): void {
+  if (!isSafeKey(errorsKey)) return
+  if (!Object.hasOwn(errors, errorsKey)) {
+    errors[errorsKey] = []
+  }
+  const message = messageFormatter ? messageFormatter(code, params) : DEFAULT_MESSAGES[code](params)
+  errors[errorsKey].push({ code, message, params })
+}
+
+function getPerTypeRule(
+  def: ODValidatorRuleSchema,
+  valueType: ODValidatorValueType | null,
+): ODValidatorPerTypeRuleSchema | undefined {
+  if (valueType === null || def.per_type === undefined || !Object.hasOwn(def.per_type, valueType)) {
+    return undefined
+  }
+  return def.per_type[valueType]
+}
+
 function checkMinMax(
   value: unknown,
   valueType: ODValidatorValueType,
@@ -44,15 +68,16 @@ function checkMinMax(
   max: number | undefined,
   def: ODValidatorRuleSchema,
   errorsKey: string,
-  addError: AddErrorFn,
+  errors: ODValidatorErrors,
+  messageFormatter: ODValidatorMessageFormatter | undefined,
 ): void {
   const minMaxValue = getValueForMinOrMax(value, valueType)
   if (minMaxValue !== null) {
-    if (min !== undefined && (minMaxValue < min)) addError(ErrorCode.MIN_VIOLATION, { min, actual: minMaxValue })
-    if (max !== undefined && (minMaxValue > max)) addError(ErrorCode.MAX_VIOLATION, { max, actual: minMaxValue })
+    if (min !== undefined && (minMaxValue < min)) addErrorToMap(errors, errorsKey, ErrorCode.MIN_VIOLATION, messageFormatter, { min, actual: minMaxValue })
+    if (max !== undefined && (minMaxValue > max)) addErrorToMap(errors, errorsKey, ErrorCode.MAX_VIOLATION, messageFormatter, { max, actual: minMaxValue })
   } else if (def.type === undefined || def.type === null || (def.type as string[]).length < 2) {
     const info: ODValidatorErrors = {}
-    info[errorsKey] = [{ code: ErrorCode.MIN_MAX_NOT_APPLICABLE, message: `${valueType} can not be validated for "min" and "max"`, params: { actual: valueType } }]
+    addErrorToMap(info, errorsKey, ErrorCode.MIN_MAX_NOT_APPLICABLE, undefined, { actual: valueType })
     throwRulesError('Validation rules are incorrect', info)
   }
 }
@@ -63,21 +88,22 @@ function checkInList(
   inList: readonly unknown[],
   inPublic: readonly unknown[] | boolean | undefined,
   errorsKey: string,
-  addError: AddErrorFn,
+  errors: ODValidatorErrors,
+  messageFormatter: ODValidatorMessageFormatter | undefined,
 ): void {
   if (valueType === 'object') {
     const info: ODValidatorErrors = {}
-    info[errorsKey] = [{ code: ErrorCode.IN_NOT_APPLICABLE, message: '"in" directive is not applicable for objects', params: {} }]
+    addErrorToMap(info, errorsKey, ErrorCode.IN_NOT_APPLICABLE, undefined)
     throwRulesError('Validation rules are incorrect', info)
   } else if (valueType === 'array') {
     if ((value as unknown[]).filter(v => !inList.includes(v)).length) {
       const allowed = inPublic ? (inPublic === true ? [...inList] : [...(inPublic as unknown[])]) : undefined
-      addError(ErrorCode.ARRAY_ELEMENT_NOT_IN_LIST, { allowed })
+      addErrorToMap(errors, errorsKey, ErrorCode.ARRAY_ELEMENT_NOT_IN_LIST, messageFormatter, { allowed })
     }
   } else {
     if (!inList.includes(value)) {
       const allowed = inPublic ? (inPublic === true ? [...inList] : [...(inPublic as unknown[])]) : undefined
-      addError(ErrorCode.VALUE_NOT_IN_LIST, { allowed })
+      addErrorToMap(errors, errorsKey, ErrorCode.VALUE_NOT_IN_LIST, messageFormatter, { allowed })
     }
   }
 }
@@ -87,21 +113,23 @@ function checkPattern(
   valueType: ODValidatorValueType,
   pattern: RegExp | string | undefined,
   special: string | undefined,
-  addError: AddErrorFn,
+  errorsKey: string,
+  errors: ODValidatorErrors,
+  messageFormatter: ODValidatorMessageFormatter | undefined,
 ): void {
   if (valueType !== 'string') {
-    addError(ErrorCode.PATTERN_MISMATCH)
+    addErrorToMap(errors, errorsKey, ErrorCode.PATTERN_MISMATCH, messageFormatter)
     return
   }
   const str = value as string
   if (special !== undefined) {
     const maxLen = SPECIAL_MAX_LENGTHS[special]
     if (maxLen !== undefined && str.length > maxLen) {
-      addError(ErrorCode.INVALID_FORMAT, { format: special })
+      addErrorToMap(errors, errorsKey, ErrorCode.INVALID_FORMAT, messageFormatter, { format: special })
     } else {
       const specialPattern = SPECIAL_VALIDATORS[special]
       if (specialPattern) {
-        if (!specialPattern.test(str)) addError(ErrorCode.INVALID_FORMAT, { format: special })
+        if (!specialPattern.test(str)) addErrorToMap(errors, errorsKey, ErrorCode.INVALID_FORMAT, messageFormatter, { format: special })
       }
     }
   }
@@ -117,7 +145,7 @@ function checkPattern(
     } else {
       expression = pattern
     }
-    if (!expression.test(str)) addError(ErrorCode.PATTERN_MISMATCH)
+    if (!expression.test(str)) addErrorToMap(errors, errorsKey, ErrorCode.PATTERN_MISMATCH, messageFormatter)
   }
 }
 
@@ -134,7 +162,7 @@ function checkChildren(
   } else {
     if (def.type === undefined || !(def.type as string[]).filter(t => !['object', 'array'].includes(t)).length) {
       const info: ODValidatorErrors = {}
-      info[errorsKey] = [{ code: ErrorCode.CHILDREN_TYPE_ERROR, message: `Can't validate children of type ${valueType}`, params: { actual: valueType } }]
+      addErrorToMap(info, errorsKey, ErrorCode.CHILDREN_TYPE_ERROR, undefined, { actual: valueType })
       throwRulesError('Validation rules are incorrect', info)
     }
   }
@@ -167,6 +195,7 @@ export class ODValidatorRule {
    * @param errors - Mutable error map that collects all validation failures.
    * @param processChildren - Callback to recurse into nested children schemas.
    * @param messageFormatter - Optional custom message formatter.
+   * @param runtimeState - Internal metadata about whether transformed output should be stored.
    * @returns The (possibly transformed) value.
    */
   static applyRule(
@@ -176,34 +205,52 @@ export class ODValidatorRule {
     errors: ODValidatorErrors,
     processChildren: (rules: ODValidatorRulesSchema, input: Record<string, unknown>, prefix: string) => void,
     messageFormatter?: ODValidatorMessageFormatter,
+    runtimeState?: { applyTransformed: boolean },
   ): unknown {
-    const addError: AddErrorFn = (code, params = {}) => {
-      const message = messageFormatter
-        ? messageFormatter(code, params)
-        : DEFAULT_MESSAGES[code](params)
-      if (!Object.hasOwn(errors, errorsKey)) {
-        errors[errorsKey] = []
-      }
-      errors[errorsKey].push({ code, message, params })
+    const baseValue = def.transform !== undefined ? def.transform(originalValue) : originalValue
+    const prePerTypeRule = getPerTypeRule(def, getValueType(baseValue))
+    const value = prePerTypeRule?.transform !== undefined ? prePerTypeRule.transform(baseValue) : baseValue
+    assertNoPoisonedKeys(value, 'input', errorsKey)
+    if (runtimeState) {
+      runtimeState.applyTransformed = (
+        prePerTypeRule?.transform !== undefined
+          ? (prePerTypeRule.apply_transformed ?? def.apply_transformed)
+          : def.apply_transformed
+      ) === true
     }
 
-    const value = def.transform !== undefined ? def.transform(originalValue) : originalValue
     const valueType = getValueType(value)
 
     if (valueType === null) {
-      if (def.type !== undefined && def.type !== null) {
-        addError(ErrorCode.TYPE_MISMATCH, { expected: (def.type as string[]).join(' or '), actual: 'NaN/Infinity' })
+      const hasConstraint = (
+        def.type !== undefined && def.type !== null
+      ) || def.min !== undefined
+        || def.max !== undefined
+        || def.in !== undefined
+        || def.pattern !== undefined
+        || def.special !== undefined
+        || def.children !== undefined
+        || prePerTypeRule?.min !== undefined
+        || prePerTypeRule?.max !== undefined
+        || prePerTypeRule?.in !== undefined
+        || prePerTypeRule?.pattern !== undefined
+        || prePerTypeRule?.special !== undefined
+        || prePerTypeRule?.children !== undefined
+      if (hasConstraint) {
+        const expected = def.type !== undefined && def.type !== null
+          ? (def.type as string[]).join(' or ')
+          : 'finite value'
+        addErrorToMap(errors, errorsKey, ErrorCode.TYPE_MISMATCH, messageFormatter, { expected, actual: 'NaN/Infinity' })
       }
       return value
     }
 
     if (def.type !== undefined && def.type !== null && !(def.type as string[]).includes(valueType)) {
-      addError(ErrorCode.TYPE_MISMATCH, { expected: (def.type as string[]).join(' or '), actual: valueType })
+      addErrorToMap(errors, errorsKey, ErrorCode.TYPE_MISMATCH, messageFormatter, { expected: (def.type as string[]).join(' or '), actual: valueType })
       return value
     }
 
-    // Resolve per_type overrides without mutation — read from overlay first, then base def
-    const perType: ODValidatorPerTypeRuleSchema | undefined = def.per_type !== undefined && Object.hasOwn(def.per_type, valueType) ? def.per_type[valueType] : undefined
+    const perType = getPerTypeRule(def, valueType)
     const min = perType?.min ?? def.min
     const max = perType?.max ?? def.max
     const inList = perType?.in ?? def.in
@@ -214,13 +261,13 @@ export class ODValidatorRule {
 
     if (value !== null) {
       if (min !== undefined || max !== undefined) {
-        checkMinMax(value, valueType, min, max, def, errorsKey, addError)
+        checkMinMax(value, valueType, min, max, def, errorsKey, errors, messageFormatter)
       }
       if (inList !== undefined) {
-        checkInList(value, valueType, inList, inPublic, errorsKey, addError)
+        checkInList(value, valueType, inList, inPublic, errorsKey, errors, messageFormatter)
       }
       if (pattern !== undefined || special !== undefined) {
-        checkPattern(value, valueType, pattern, special, addError)
+        checkPattern(value, valueType, pattern, special, errorsKey, errors, messageFormatter)
       }
       if (children !== undefined) {
         checkChildren(value, valueType, children, def, errorsKey, processChildren)

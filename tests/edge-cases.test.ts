@@ -1,4 +1,5 @@
-import { safeParse } from '../src/index'
+import { safeParse, ODValidator, ODValidatorRules, ODValidatorRule, ODValidatorRulesException, ODValidatorSecurityException } from '../src/index'
+import type { ODValidatorErrors, ODValidatorRuleSchema, ODValidatorRulesSchema } from '../src/index'
 
 const opts = { strictMode: false } as const
 
@@ -141,5 +142,117 @@ describe('function type', () => {
 
   test('non-function rejected for function type', () => {
     expect(passes({ val: { type: 'function' } }, { val: 'not a function' })).toBe(false)
+  })
+})
+
+describe('ODValidatorRule - constructor (line 168)', () => {
+  test('constructor deep-clones the definition', () => {
+    const def: ODValidatorRuleSchema = { type: 'string', min: 1, max: 100 }
+    const rule = new ODValidatorRule(def)
+    expect(rule.definition.type).toBe('string')
+    expect(rule.definition.min).toBe(1)
+    expect(rule.definition.max).toBe(100)
+    // Verify independence from original (clone, not reference)
+    def.min = 999
+    expect(rule.definition.min).toBe(1)
+  })
+})
+
+describe('ODValidator.process() - direct usage with uncached schemas', () => {
+  // process() takes an ad-hoc schema that is NOT in the validator's _schemaKeyCache.
+  // This exercises the fallback paths in enforceStrictMode and processNamedRules.
+
+  test('process() validates a field against an ad-hoc schema', () => {
+    const v = new ODValidator(new ODValidatorRules({}), { strictMode: false, exceptionMode: false })
+    v.errors = {}
+    const result = v.process({ name: { type: 'string' } }, { name: 'Alice' })
+    expect((result as Record<string, unknown>).name).toBe('Alice')
+  })
+
+  test('process() records REQUIRED errors for missing fields in uncached schema', () => {
+    const v = new ODValidator(new ODValidatorRules({}), { strictMode: false, exceptionMode: false })
+    v.errors = {}
+    v.process({ name: { type: 'string', required: true } }, {})
+    expect(v.errors.name).toBeDefined()
+    expect(v.errors.name[0].code).toBe('REQUIRED')
+  })
+
+  test('process() applies default values in uncached schema', () => {
+    const v = new ODValidator(new ODValidatorRules({}), { strictMode: false, exceptionMode: false })
+    v.errors = {}
+    const result = v.process({ name: { type: 'string', default: 'World' } }, {})
+    expect((result as Record<string, unknown>).name).toBe('World')
+  })
+
+  test('process() applies transforms with apply_transformed in uncached schema', () => {
+    const v = new ODValidator(new ODValidatorRules({}), { strictMode: false, exceptionMode: false })
+    v.errors = {}
+    const result = v.process(
+      { name: { type: 'string', transform: (x: unknown) => String(x).toUpperCase(), apply_transformed: true } },
+      { name: 'alice' },
+    )
+    expect((result as Record<string, unknown>).name).toBe('ALICE')
+  })
+
+  test('process() enforces @.strict: true in uncached schema', () => {
+    const v = new ODValidator(new ODValidatorRules({}), { strictMode: false, exceptionMode: false })
+    v.errors = {}
+    v.process({ '@': { strict: true }, name: { type: 'string' } }, { name: 'Alice', extra: 'bad' })
+    expect(v.errors.extra).toBeDefined()
+    expect(v.errors.extra[0].code).toBe('NOT_ALLOWED')
+  })
+
+  test('process() respects @.strict: false override over instance strictMode in uncached schema', () => {
+    const v = new ODValidator(new ODValidatorRules({}), { strictMode: true, exceptionMode: false })
+    v.errors = {}
+    v.process({ '@': { strict: false }, name: { type: 'string' } }, { name: 'Alice', extra: 'ok' })
+    expect(v.errors.extra).toBeUndefined()
+  })
+
+  test('process() uses instance strictMode when uncached schema has no @', () => {
+    const v = new ODValidator(new ODValidatorRules({}), { strictMode: true, exceptionMode: false })
+    v.errors = {}
+    v.process({ name: { type: 'string' } }, { name: 'Alice', extra: 'bad' })
+    expect(v.errors.extra).toBeDefined()
+    expect(v.errors.extra[0].code).toBe('NOT_ALLOWED')
+  })
+
+  test('process() uses default errorsPrefix of empty string', () => {
+    const v = new ODValidator(new ODValidatorRules({}), { strictMode: false, exceptionMode: false })
+    v.errors = {}
+    v.process({ val: { type: 'string', required: true } }, {})
+    expect(v.errors['val']).toBeDefined()
+  })
+})
+
+describe('ODValidator.process() - additional uncached-path branches', () => {
+  test('process() throws for poisoned key (constructor) in ad-hoc schema', () => {
+    const v = new ODValidator(new ODValidatorRules({}), { strictMode: false, exceptionMode: false })
+    v.errors = {}
+    // 'constructor' is in POISONED_KEYS → isSafeKey returns false → continue at line 212
+    expect(() => {
+      v.process({ constructor: { type: 'string', required: true } } as unknown as ODValidatorRulesSchema, {})
+    }).toThrow(ODValidatorSecurityException)
+    expect(Object.hasOwn(v.errors, 'constructor')).toBe(false)
+  })
+
+  test('process() with absent non-required optional field adds no error (line 219 false)', () => {
+    const v = new ODValidator(new ODValidatorRules({}), { strictMode: false, exceptionMode: false })
+    v.errors = {}
+    // field is absent but not required → else-if (required) = false → no error
+    v.process({ optionalField: { type: 'string' } }, {})
+    expect(v.errors['optionalField']).toBeUndefined()
+    expect(Object.keys(v.errors).length).toBe(0)
+  })
+
+  test('process() with array input clones as array (line 254 Array.isArray true)', () => {
+    const v = new ODValidator(new ODValidatorRules({}), { strictMode: false, exceptionMode: false })
+    v.errors = {}
+    const input = ['a', 'b', 'c']
+    const result = v.process(
+      { '*': { type: 'string' } },
+      input as unknown as Record<string, unknown>,
+    )
+    expect(Array.isArray(result)).toBe(true)
   })
 })

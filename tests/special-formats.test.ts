@@ -1,4 +1,10 @@
-import { safeParse } from '../src/index'
+import {
+  safeParse, ODValidatorRule,
+  EMAIL_PATTERN, PHONE_PATTERN, US_PHONE_PATTERN, URL_PATTERN, UUID_PATTERN,
+  IPV4_PATTERN, DATE_PATTERN, DATETIME_PATTERN, HEX_COLOR_PATTERN,
+  SPECIAL_VALIDATORS, SPECIAL_MAX_LENGTHS,
+} from '../src/index'
+import type { ODValidatorErrors, ODValidatorRuleSchema } from '../src/index'
 
 const opts = { strictMode: false } as const
 
@@ -136,5 +142,77 @@ describe('special - hex-color validation', () => {
     if (!result.success) {
       expect(result.errors.val[0].message).toBe('Incorrect hex-color')
     }
+  })
+})
+
+describe('index.ts - re-exported pattern constants and classes', () => {
+  test('ODValidatorRule is usable from the main export', () => {
+    expect(ODValidatorRule).toBeDefined()
+    expect(typeof ODValidatorRule).toBe('function')
+  })
+
+  test('EMAIL_PATTERN is a RegExp that matches valid emails', () => {
+    expect(EMAIL_PATTERN).toBeInstanceOf(RegExp)
+    expect(EMAIL_PATTERN.test('user@example.com')).toBe(true)
+    expect(EMAIL_PATTERN.test('not-an-email')).toBe(false)
+  })
+
+  test('PHONE_PATTERN is a RegExp', () => {
+    expect(PHONE_PATTERN).toBeInstanceOf(RegExp)
+  })
+
+  test('US_PHONE_PATTERN is a RegExp', () => {
+    expect(US_PHONE_PATTERN).toBeInstanceOf(RegExp)
+  })
+
+  test('URL_PATTERN is a RegExp', () => {
+    expect(URL_PATTERN).toBeInstanceOf(RegExp)
+  })
+
+  test('UUID_PATTERN is a RegExp', () => {
+    expect(UUID_PATTERN).toBeInstanceOf(RegExp)
+  })
+
+  test('IPV4_PATTERN is a RegExp', () => {
+    expect(IPV4_PATTERN).toBeInstanceOf(RegExp)
+  })
+
+  test('DATE_PATTERN is a RegExp', () => {
+    expect(DATE_PATTERN).toBeInstanceOf(RegExp)
+  })
+
+  test('DATETIME_PATTERN is a RegExp', () => {
+    expect(DATETIME_PATTERN).toBeInstanceOf(RegExp)
+  })
+
+  test('HEX_COLOR_PATTERN is a RegExp', () => {
+    expect(HEX_COLOR_PATTERN).toBeInstanceOf(RegExp)
+  })
+
+  test('SPECIAL_VALIDATORS is an object with RegExp values', () => {
+    expect(SPECIAL_VALIDATORS).toBeDefined()
+    expect(typeof SPECIAL_VALIDATORS).toBe('object')
+    expect(SPECIAL_VALIDATORS['email']).toBeInstanceOf(RegExp)
+  })
+
+  test('SPECIAL_MAX_LENGTHS is an object with numeric values', () => {
+    expect(SPECIAL_MAX_LENGTHS).toBeDefined()
+    expect(typeof SPECIAL_MAX_LENGTHS['email']).toBe('number')
+  })
+})
+
+describe('rule.ts - checkPattern with unknown special (line 119 false branch)', () => {
+  test('unknown special skips pattern test (specialPattern is undefined)', () => {
+    // SPECIAL_VALIDATORS['completely-unknown'] = undefined → line 119 false branch
+    const errors: ODValidatorErrors = {}
+    ODValidatorRule.applyRule(
+      { special: 'completely-unknown' } as unknown as ODValidatorRuleSchema,
+      'any-string',
+      'field',
+      errors,
+      () => { /* no children */ },
+    )
+    // No error added (special not recognized, no pattern to test against)
+    expect(errors.field).toBeUndefined()
   })
 })

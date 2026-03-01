@@ -1,4 +1,5 @@
-import { ODValidatorException, parse, safeParse } from '../src/index'
+import { ODValidatorException, ODValidator, ODValidatorRules, parse, safeParse } from '../src/index'
+import type { ODValidatorRulesSchema } from '../src/index'
 
 describe('exception mode', () => {
   test('exception mode true (default) throws on failure', () => {
@@ -146,5 +147,42 @@ describe('multiple fields with errors', () => {
 describe('return value on success', () => {
   test('returns true in non-exception mode on success', () => {
     expect(safeParse({ val: { type: 'string' } }, { val: 'ok' }, { strictMode: false })).toBeTruthy()
+  })
+})
+
+describe('ODValidator - strictMode / exceptionMode setters', () => {
+  test('strictMode setter updates the internal option', () => {
+    const v = new ODValidator(new ODValidatorRules({ name: { type: 'string' } }), { strictMode: true })
+    expect(v.strictMode).toBe(true)
+    v.strictMode = false
+    expect(v.strictMode).toBe(false)
+  })
+
+  test('exceptionMode setter updates the internal option', () => {
+    const v = new ODValidator(new ODValidatorRules({ name: { type: 'string' } }), { exceptionMode: true })
+    expect(v.exceptionMode).toBe(true)
+    v.exceptionMode = false
+    expect(v.exceptionMode).toBe(false)
+  })
+
+  test('ODValidator constructor uses default options when none provided', () => {
+    const v = new ODValidator(new ODValidatorRules({ name: { type: 'string' } }))
+    // Both default to true
+    expect(v.strictMode).toBe(true)
+    expect(v.exceptionMode).toBe(true)
+  })
+})
+
+describe('ODValidator - multiple errors for same field (line 114 false branch)', () => {
+  test('field failing both pattern and in checks gets two errors for the same key', () => {
+    const rules = new ODValidatorRules({
+      field: { type: 'string', in: ['abc', 'def'] as const, pattern: /^x/ },
+    })
+    const v = new ODValidator(rules, { strictMode: false, exceptionMode: false })
+    v.validate({ field: 'hello' })
+    // 'hello' fails both 'in' (not abc/def) and 'pattern' (doesn't start with x)
+    // → addError called twice for same key → line 114 false branch
+    expect(v.errors.field).toBeDefined()
+    expect(v.errors.field.length).toBeGreaterThanOrEqual(2)
   })
 })

@@ -1,4 +1,4 @@
-import { parse, safeParse, ErrorCode } from '../src/index'
+import { parse, safeParse, ErrorCode, ODValidator, ODValidatorRules } from '../src/index'
 import type { ODValidatorRulesSchema } from '../src/index'
 
 const opts = { strictMode: false } as const
@@ -170,6 +170,22 @@ describe('transform - wildcard with apply_transformed', () => {
     }
     expect(passes(schema, { items: ['1', '2', '3'] })).toBe(true)
   })
+
+  test('wildcard transforms use the actual sparse array index', () => {
+    const rules = new ODValidatorRules({
+      '*': { type: 'integer', transform: (v: unknown) => parseInt(v as string, 10), apply_transformed: true },
+    })
+    const validator = new ODValidator(rules, { strictMode: false, exceptionMode: false })
+    const input: unknown[] = []
+    input[2] = '7'
+
+    expect(validator.validate(input as unknown as Record<string, unknown>)).toBe(true)
+
+    const data = validator.data as unknown[]
+    expect(0 in data).toBe(false)
+    expect(1 in data).toBe(false)
+    expect(data[2]).toBe(7)
+  })
 })
 
 describe('transform - edge cases', () => {
@@ -183,5 +199,31 @@ describe('transform - edge cases', () => {
 
   test('identity transform', () => {
     expect(passes({ val: { type: 'string', transform: (v) => v } }, { val: 'hello' })).toBe(true)
+  })
+})
+
+describe('ODValidator - wildcard * with apply_transformed on object', () => {
+  test('* rule with apply_transformed transforms each object value', () => {
+    const schema: ODValidatorRulesSchema = {
+      '*': { type: 'string', transform: (v: unknown) => String(v).toUpperCase(), apply_transformed: true },
+    }
+    const v = new ODValidator(new ODValidatorRules(schema), { strictMode: false, exceptionMode: false })
+    v.validate({ a: 'hello', b: 'world' })
+    const data = v.data as Record<string, unknown>
+    expect(data['a']).toBe('HELLO')
+    expect(data['b']).toBe('WORLD')
+  })
+})
+
+describe('ODValidator.validate() - array input with transform schema (line 276 branch)', () => {
+  test('validate() with array input and transform schema clones as array', () => {
+    // hasTransformOrDefault = true (transform set) + internalCall = false
+    // → outer condition false → line 276: Array.isArray(input) = true → data = [...input]
+    const rules = new ODValidatorRules({
+      '*': { type: 'string', transform: (v: unknown) => v, apply_transformed: true },
+    })
+    const v = new ODValidator(rules, { strictMode: false, exceptionMode: false })
+    expect(() => v.validate(['a', 'b'] as unknown as Record<string, unknown>)).not.toThrow()
+    expect(v.data).toEqual(['a', 'b'])
   })
 })

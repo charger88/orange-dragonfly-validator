@@ -1,4 +1,6 @@
-import { parse, safeParse, ODValidatorException, ErrorCode } from '../src/index'
+import { parse, safeParse, ODValidatorException, ODValidatorRulesException, ErrorCode } from '../src/index'
+import { DEFAULT_MESSAGES } from '../src/error-codes'
+import type { ODValidatorErrors } from '../src/index'
 
 describe('structured error entries', () => {
   test('error entry has code, message, and params', () => {
@@ -142,5 +144,50 @@ describe('i18n message formatter', () => {
     if (!result.success) {
       expect(result.errors.val[0].message).toBe('Tipo incorrecto: se requiere string')
     }
+  })
+})
+
+describe('ODValidatorException - coverage gaps', () => {
+  test('constructor without details defaults to empty object', () => {
+    const exc = new ODValidatorException('test message')
+    expect(exc.message).toBe('test message')
+    expect(exc.details).toEqual({})
+    expect(exc.info).toEqual({})
+  })
+
+  test('details setter replaces the stored details', () => {
+    const exc = new ODValidatorException('test')
+    const newDetails: ODValidatorErrors = {
+      field: [{ code: 'REQUIRED', message: 'Required', params: {} }],
+    }
+    exc.details = newDetails
+    expect(exc.details).toBe(newDetails)
+    expect(exc.info.field).toEqual(['Required'])
+  })
+})
+
+describe('ODValidatorRulesException - coverage gaps', () => {
+  test('constructor without details defaults to empty object', () => {
+    const exc = new ODValidatorRulesException('rules error')
+    expect(exc.message).toBe('rules error')
+    expect(exc.details).toEqual({})
+    expect(exc.name).toBe('ODValidatorRulesException')
+  })
+})
+
+describe('DEFAULT_MESSAGES - uncovered formatter functions', () => {
+  test('CHILDREN_TYPE_ERROR message includes the actual type', () => {
+    const msg = DEFAULT_MESSAGES.CHILDREN_TYPE_ERROR({ actual: 'string' })
+    expect(msg).toContain('string')
+  })
+
+  test('MIN_MAX_NOT_APPLICABLE message includes the actual type', () => {
+    const msg = DEFAULT_MESSAGES.MIN_MAX_NOT_APPLICABLE({ actual: 'boolean' })
+    expect(msg).toContain('boolean')
+  })
+
+  test('IN_NOT_APPLICABLE message mentions the in directive', () => {
+    const msg = DEFAULT_MESSAGES.IN_NOT_APPLICABLE({})
+    expect(msg).toContain('in')
   })
 })

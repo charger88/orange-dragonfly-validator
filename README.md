@@ -74,6 +74,41 @@ if (result.success) {
 }
 ```
 
+### `createValidator` — recommended for repeated validation
+
+> **This is the recommended approach when you validate the same schema more than once** (e.g. in a request handler, a worker loop, or any hot path). The schema is normalised and compiled once at construction time, so each `validate()` call has no per-call setup cost.
+
+```typescript
+import { createValidator } from 'orange-dragonfly-validator'
+
+const validator = createValidator({
+  name: { type: 'string', required: true, min: 1, max: 100 },
+  email: { type: 'string', required: true, special: 'email' },
+  age: { type: 'integer', min: 0, max: 150 },
+} as const)
+
+// Create once, reuse across every request:
+app.post('/users', (req, res) => {
+  try {
+    validator.validate(req.body)
+    const data = validator.data // fully typed
+    // …
+  } catch (e) {
+    res.status(400).json(e.info)
+  }
+})
+```
+
+`createValidator` accepts the same options as `ODValidator`:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `strictMode` | `boolean` | `true` | Reject keys not defined in the schema |
+| `exceptionMode` | `boolean` | `true` | Throw `ODValidatorException` on failure instead of returning `false` |
+| `messageFormatter` | `function` | built-in | Custom `(code, params) => string` error formatter |
+
+After `validate()`, read results from `validator.data` (processed input) and `validator.errors` (field-keyed error map).
+
 ### `ODValidator` — class-based usage
 
 ```typescript
@@ -105,12 +140,14 @@ A schema is a plain object mapping field names to rule definitions. No field in 
 | `in:public` | `unknown[] \| boolean` | Controls which `in` values appear in error messages. `true` exposes the `in` list; an array overrides it |
 | `min` | `number` | Minimum value (numbers), length (strings), or item count (arrays) |
 | `max` | `number` | Maximum value (numbers), length (strings), or item count (arrays) |
-| `pattern` | `RegExp \| string` | Regex the value must match (strings and numbers) |
+| `pattern` | `RegExp \| string` | Regex the value must match (strings only). `RegExp` objects are used as-is |
 | `special` | `string` | Built-in format validator name (see [Format Validators](#format-validators)) |
 | `transform` | `function` | `(value: unknown) => unknown` — transforms value before validation |
 | `apply_transformed` | `boolean` | If `true`, the transformed value replaces the original in output |
 | `children` | `ODValidatorRulesSchema` | Nested schema for object properties or array elements |
 | `per_type` | `object` | Type-specific rule overrides (see [Per-Type Rules](#per-type-rules)) |
+
+Keys named `__proto__`, `constructor`, and `prototype` are rejected anywhere in input data or schema definitions. Encountering one throws `ODValidatorSecurityException`.
 
 ### Meta-Keys
 
@@ -419,7 +456,7 @@ Error codes are available as the `ErrorCode` constant for programmatic compariso
 ### Exception Types
 
 ```typescript
-import { ODValidatorException, ODValidatorRulesException } from 'orange-dragonfly-validator'
+import { ODValidatorException, ODValidatorRulesException, ODValidatorSecurityException } from 'orange-dragonfly-validator'
 
 // ODValidatorException — input validation failed (expected at runtime)
 try {
@@ -434,6 +471,9 @@ try {
 
 // ODValidatorRulesException — schema itself is invalid (programming error)
 // Extends ODValidatorException. Thrown by parse, safeParse, and validateSchema.
+
+// ODValidatorSecurityException — poisoned key detected in input or schema
+// Thrown before validation continues.
 ```
 
 `safeParse` catches `ODValidatorException` and returns `{ success: false, errors }` instead — but still throws `ODValidatorRulesException` since invalid schemas are programming errors.
@@ -524,6 +564,7 @@ try {
 | `ODValidatorRule` | Single rule processor with `apply()` method |
 | `ODValidatorException` | Validation failure error with `details` (structured) and `info` (simplified) |
 | `ODValidatorRulesException` | Schema definition error (extends `ODValidatorException`) |
+| `ODValidatorSecurityException` | Unsafe key detected in input or schema |
 
 ### Types
 
@@ -587,6 +628,7 @@ Input + Schema
 - **No async validation** — all validation is synchronous
 - **No schema composition** — no `pick`/`omit`/`partial`/`merge` utilities; compose schemas manually
 - **No pattern complexity validation** — `pattern` values (RegExp or string) are used as-is. Schemas should be defined by developers, not constructed from end-user input. If you accept patterns from untrusted sources, validate them externally to prevent [ReDoS](https://owasp.org/www-community/attacks/Regular_expression_Denial_of_Service_-_ReDoS) attacks
+- **Stateful `RegExp` objects are not reset** — if you pass a `pattern` with the `g` or `y` flag, validation reuses that same object and will mutate its `lastIndex`. Do not share that `RegExp` instance with unrelated logic or rely on its state after validation
 
 ## License
 

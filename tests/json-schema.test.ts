@@ -590,3 +590,270 @@ describe('roundtrip', () => {
     expect(roundtripped.properties?.status?.default).toBe('active')
   })
 })
+
+describe('fromJsonSchema - no-type min/max fallback (lines 178-185)', () => {
+  // When no type is specified, fromJsonSchema falls back to checking each min/max keyword
+
+  test('minimum with no type maps to rule.min', () => {
+    const { schema } = fromJsonSchema({ type: 'object', properties: { val: { minimum: 5 } } })
+    expect((schema.val as Record<string, unknown>).min).toBe(5)
+  })
+
+  test('maximum with no type maps to rule.max', () => {
+    const { schema } = fromJsonSchema({ type: 'object', properties: { val: { maximum: 100 } } })
+    expect((schema.val as Record<string, unknown>).max).toBe(100)
+  })
+
+  test('exclusiveMinimum with no type maps to rule.min', () => {
+    const { schema } = fromJsonSchema({ type: 'object', properties: { val: { exclusiveMinimum: 3 } } })
+    expect((schema.val as Record<string, unknown>).min).toBe(3)
+  })
+
+  test('exclusiveMaximum with no type maps to rule.max', () => {
+    const { schema } = fromJsonSchema({ type: 'object', properties: { val: { exclusiveMaximum: 99 } } })
+    expect((schema.val as Record<string, unknown>).max).toBe(99)
+  })
+
+  test('minLength with no type maps to rule.min when minimum is absent', () => {
+    const { schema } = fromJsonSchema({ type: 'object', properties: { val: { minLength: 2 } } })
+    expect((schema.val as Record<string, unknown>).min).toBe(2)
+  })
+
+  test('maxLength with no type maps to rule.max when maximum is absent', () => {
+    const { schema } = fromJsonSchema({ type: 'object', properties: { val: { maxLength: 50 } } })
+    expect((schema.val as Record<string, unknown>).max).toBe(50)
+  })
+
+  test('minItems with no type maps to rule.min when others are absent', () => {
+    const { schema } = fromJsonSchema({ type: 'object', properties: { val: { minItems: 1 } } })
+    expect((schema.val as Record<string, unknown>).min).toBe(1)
+  })
+
+  test('maxItems with no type maps to rule.max when others are absent', () => {
+    const { schema } = fromJsonSchema({ type: 'object', properties: { val: { maxItems: 10 } } })
+    expect((schema.val as Record<string, unknown>).max).toBe(10)
+  })
+})
+
+describe('fromJsonSchema - resolveMinMaxForType single-type only-max / float exclusive / array', () => {
+  test('string with only maxLength (no minLength) sets max but not min', () => {
+    const { schema } = fromJsonSchema({ type: 'object', properties: { val: { type: 'string', maxLength: 50 } } })
+    const rule = schema.val as Record<string, unknown>
+    expect(rule.max).toBe(50)
+    expect(rule.min).toBeUndefined()
+  })
+
+  test('number with only maximum (no minimum) sets max but not min', () => {
+    const { schema } = fromJsonSchema({ type: 'object', properties: { val: { type: 'number', maximum: 100 } } })
+    const rule = schema.val as Record<string, unknown>
+    expect(rule.max).toBe(100)
+    expect(rule.min).toBeUndefined()
+  })
+
+  test('number with float exclusiveMinimum generates a warning', () => {
+    const { schema, warnings } = fromJsonSchema({ type: 'object', properties: { val: { type: 'number', exclusiveMinimum: 3.5 } } })
+    expect((schema.val as Record<string, unknown>).min).toBe(3.5)
+    expect(warnings.some(w => w.includes('exclusiveMinimum'))).toBe(true)
+  })
+
+  test('number with float exclusiveMaximum generates a warning', () => {
+    const { schema, warnings } = fromJsonSchema({ type: 'object', properties: { val: { type: 'number', exclusiveMaximum: 99.5 } } })
+    expect((schema.val as Record<string, unknown>).max).toBe(99.5)
+    expect(warnings.some(w => w.includes('exclusiveMaximum'))).toBe(true)
+  })
+
+  test('array with only minItems (no maxItems) sets min but not max', () => {
+    const { schema } = fromJsonSchema({ type: 'object', properties: { val: { type: 'array', minItems: 1 } } })
+    const rule = schema.val as Record<string, unknown>
+    expect(rule.min).toBe(1)
+    expect(rule.max).toBeUndefined()
+  })
+
+  test('array with only maxItems (no minItems) sets max but not min', () => {
+    const { schema } = fromJsonSchema({ type: 'object', properties: { val: { type: 'array', maxItems: 5 } } })
+    const rule = schema.val as Record<string, unknown>
+    expect(rule.max).toBe(5)
+    expect(rule.min).toBeUndefined()
+  })
+})
+
+describe('fromJsonSchema - multi-type per_type distribution (lines 154-168)', () => {
+  test('multi-type with both min and max distributes to per_type', () => {
+    const { schema } = fromJsonSchema({ type: 'object', properties: {
+      val: { type: ['string', 'number'], minLength: 2, maxLength: 50, minimum: 10, maximum: 100 },
+    }})
+    const perType = (schema.val as Record<string, unknown>).per_type as Record<string, Record<string, unknown>>
+    expect(perType?.string?.min).toBe(2)
+    expect(perType?.string?.max).toBe(50)
+    expect(perType?.number?.min).toBe(10)
+    expect(perType?.number?.max).toBe(100)
+  })
+
+  test('multi-type with only max produces per_type entries with max only (no min)', () => {
+    const { schema } = fromJsonSchema({ type: 'object', properties: {
+      val: { type: ['string', 'number'], maxLength: 50, maximum: 100 },
+    }})
+    const perType = (schema.val as Record<string, unknown>).per_type as Record<string, Record<string, unknown>>
+    expect(perType?.string?.max).toBe(50)
+    expect(perType?.string?.min).toBeUndefined()
+    expect(perType?.number?.max).toBe(100)
+  })
+
+  test('non-applicable type (boolean) in multi-type skipped in per_type', () => {
+    const { schema } = fromJsonSchema({ type: 'object', properties: {
+      val: { type: ['boolean', 'string'], minLength: 2 },
+    }})
+    const perType = (schema.val as Record<string, unknown>).per_type as Record<string, Record<string, unknown>> | undefined
+    // boolean has no applicable min/max → only string gets per_type entry
+    expect(perType?.string?.min).toBe(2)
+    expect(perType?.boolean).toBeUndefined()
+  })
+
+  test('multi-type where no type supports min/max → per_type stays empty, rule.per_type undefined', () => {
+    const { schema } = fromJsonSchema({ type: 'object', properties: {
+      val: { type: ['boolean', 'null'], minimum: 5 },
+    }})
+    const rule = schema.val as Record<string, unknown>
+    expect(rule.per_type).toBeUndefined()
+    expect(rule.min).toBeUndefined()
+  })
+})
+
+describe('fromJsonSchema - unsupported format warning (line 144)', () => {
+  test('unsupported format string in property produces a warning', () => {
+    const { warnings } = fromJsonSchema({ type: 'object', properties: {
+      val: { type: 'string', format: 'totally-unsupported-format' },
+    }})
+    expect(warnings.some(w => w.includes('totally-unsupported-format'))).toBe(true)
+  })
+})
+
+describe('fromJsonSchema - propertyNames edge cases (lines 234-241)', () => {
+  test('propertyNames with unsupported format does not set special on # rule', () => {
+    const { schema } = fromJsonSchema({ type: 'object', propertyNames: { format: 'unsupported-key-format' } })
+    const hashRule = schema['#'] as Record<string, unknown>
+    expect(hashRule).toBeDefined()
+    expect(hashRule.special).toBeUndefined()
+  })
+
+  test('propertyNames present but no properties key → has # rule but no field rules', () => {
+    const { schema } = fromJsonSchema({ type: 'object', propertyNames: { minLength: 1 } })
+    expect(schema['#']).toBeDefined()
+    const nonMetaKeys = Object.keys(schema).filter(k => k !== '@' && k !== '#')
+    expect(nonMetaKeys.length).toBe(0)
+  })
+})
+
+describe('toJsonSchema - uncovered paths', () => {
+  test('multi-type with direct min/max uses first type for JSON Schema keywords (line 336)', () => {
+    // type: ['string', 'number'] with direct min/max (not per_type)
+    // The else branch at line 336: applyMinMaxToJsonSchema(js, resolvedTypes[0], rule.min, rule.max)
+    const js = toJsonSchema({
+      val: { type: ['string', 'number'] as const, min: 5, max: 100 },
+    })
+    // 'string' is first type → minLength/maxLength
+    expect(js.properties?.val?.minLength).toBe(5)
+    expect(js.properties?.val?.maxLength).toBe(100)
+  })
+
+  test('no-type rule with min/max defaults to minimum/maximum keywords (lines 376-377)', () => {
+    // applyMinMaxToJsonSchema with undefined type → else branch → minimum/maximum
+    const js = toJsonSchema({
+      val: { min: 0, max: 99 },
+    })
+    expect(js.properties?.val?.minimum).toBe(0)
+    expect(js.properties?.val?.maximum).toBe(99)
+  })
+
+  test('strict: false converts to additionalProperties: true (lines 391-392)', () => {
+    const js = toJsonSchema({
+      '@': { strict: false },
+      name: { type: 'string' },
+    })
+    expect(js.additionalProperties).toBe(true)
+  })
+})
+
+describe('toJsonSchema - additional branch coverage', () => {
+  test('rule with type "function" (filtered out) produces no type field in JSON Schema', () => {
+    // All types filtered → types.length === 0 → neither if nor else-if taken → no js.type
+    const js = toJsonSchema({ val: { type: 'function' as unknown as 'string' } })
+    expect(js.properties?.val?.type).toBeUndefined()
+  })
+
+  test('rule with string pattern (not RegExp) outputs pattern as-is', () => {
+    const js = toJsonSchema({ val: { pattern: '^[a-z]+$' } })
+    expect(js.properties?.val?.pattern).toBe('^[a-z]+$')
+  })
+
+  test('rule with unknown special does not set format in JSON Schema', () => {
+    const js = toJsonSchema({ val: { special: 'unknown-special' as unknown as 'email' } })
+    expect(js.properties?.val?.format).toBeUndefined()
+  })
+
+  test('array type with children containing "*" generates items', () => {
+    const js = toJsonSchema({
+      val: { type: 'array', children: { '*': { type: 'string' } } },
+    })
+    expect(js.properties?.val?.items).toBeDefined()
+    expect(js.properties?.val?.items?.type).toBe('string')
+    // isArray=true, isObject=false → second if block NOT entered
+    expect(js.properties?.val?.properties).toBeUndefined()
+  })
+
+  test('number type with only min generates minimum but not maximum', () => {
+    const js = toJsonSchema({ val: { type: 'number', min: 5 } })
+    expect(js.properties?.val?.minimum).toBe(5)
+    expect(js.properties?.val?.maximum).toBeUndefined()
+  })
+
+  test('number type with only max generates maximum but not minimum', () => {
+    const js = toJsonSchema({ val: { type: 'number', max: 100 } })
+    expect(js.properties?.val?.maximum).toBe(100)
+    expect(js.properties?.val?.minimum).toBeUndefined()
+  })
+
+  test('integer type with min and max generates minimum and maximum', () => {
+    const js = toJsonSchema({ val: { type: 'integer', min: 1, max: 10 } })
+    expect(js.properties?.val?.minimum).toBe(1)
+    expect(js.properties?.val?.maximum).toBe(10)
+  })
+
+  test('array type with min and max generates minItems and maxItems', () => {
+    const js = toJsonSchema({ val: { type: 'array', min: 1, max: 10 } })
+    expect(js.properties?.val?.minItems).toBe(1)
+    expect(js.properties?.val?.maxItems).toBe(10)
+  })
+
+  test('array type with only min generates minItems but not maxItems', () => {
+    const js = toJsonSchema({ val: { type: 'array', min: 1 } })
+    expect(js.properties?.val?.minItems).toBe(1)
+    expect(js.properties?.val?.maxItems).toBeUndefined()
+  })
+
+  test('array type with only max generates maxItems but not minItems', () => {
+    const js = toJsonSchema({ val: { type: 'array', max: 10 } })
+    expect(js.properties?.val?.maxItems).toBe(10)
+    expect(js.properties?.val?.minItems).toBeUndefined()
+  })
+
+  test('strict: true converts to additionalProperties: false', () => {
+    const js = toJsonSchema({ '@': { strict: true }, name: { type: 'string' } })
+    expect(js.additionalProperties).toBe(false)
+  })
+
+  test('"#" rule with string pattern generates propertyNames.pattern', () => {
+    const js = toJsonSchema({ '#': { type: 'string', pattern: '^[a-z]+$' }, name: { type: 'string' } })
+    expect(js.propertyNames?.pattern).toBe('^[a-z]+$')
+  })
+
+  test('"#" rule with RegExp pattern outputs propertyNames.pattern as string source', () => {
+    const js = toJsonSchema({ '#': { type: 'string', pattern: /^[a-z]+$/ }, name: { type: 'string' } })
+    expect(js.propertyNames?.pattern).toBe('^[a-z]+$')
+  })
+
+  test('"#" rule with special generates propertyNames.format', () => {
+    const js = toJsonSchema({ '#': { type: 'string', special: 'email' }, name: { type: 'string' } })
+    expect(js.propertyNames?.format).toBe('email')
+  })
+})

@@ -3,7 +3,7 @@ import type { ODValidatorErrorCode, ODValidatorMessageFormatter } from './error-
 import type { ODValidatorInfer } from './infer'
 import type { SafeParseResult } from './parse'
 import type { JsonSchema, FromJsonSchemaResult } from './json-schema'
-import { ODValidatorException, ODValidatorRulesException } from './exceptions'
+import { ODValidatorException, ODValidatorRulesException, ODValidatorSecurityException } from './exceptions'
 import { ODValidator } from './validator'
 import { ODValidatorRules } from './rules'
 import { ODValidatorRule } from './rule'
@@ -13,9 +13,11 @@ import { isSafeKey } from './sanitize'
 import { parse, safeParse, validateSchema } from './parse'
 import { fromJsonSchema, toJsonSchema } from './json-schema'
 import { ODValidatorSchemaBuilder, ODValidatorPropertyBuilder } from './builder'
+import { createValidator } from './create-validator'
 
 /** @deprecated Use {@link parse} or {@link safeParse} instead. */
 export {
+  createValidator,
   parse,
   safeParse,
   validateSchema,
@@ -26,6 +28,7 @@ export {
   ODValidatorRule,
   ODValidatorException,
   ODValidatorRulesException,
+  ODValidatorSecurityException,
   ODValidatorSchemaBuilder,
   ODValidatorPropertyBuilder,
   ErrorCode,
