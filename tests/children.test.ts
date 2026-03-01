@@ -1,4 +1,5 @@
-import { safeParse, ErrorCode } from '../src/index'
+import { safeParse, ErrorCode, ODValidatorRule, ODValidatorRulesException } from '../src/index'
+import type { ODValidatorErrors } from '../src/index'
 
 const opts = { strictMode: false } as const
 
@@ -230,5 +231,54 @@ describe('children - combined named keys and wildcards', () => {
     }
     expect(passes(rules, { config: { name: 'test', extra: 'val' } })).toBe(true)
     expect(passes(rules, { config: { extra: 'val' } })).toBe(false)
+  })
+})
+
+describe('checkChildren - non-object/array value with children (lines 151-154)', () => {
+  const noopProcessChildren = () => { /* intentionally empty */ }
+
+  test('throws ODValidatorRulesException when value is non-object and type is undefined', () => {
+    // No type → checkChildren throws when value is string
+    expect(() => {
+      ODValidatorRule.applyRule(
+        { children: { name: { type: 'string' } } },
+        'a string value',
+        'val',
+        {} as ODValidatorErrors,
+        noopProcessChildren,
+      )
+    }).toThrow(ODValidatorRulesException)
+  })
+
+  test('throws when only object/array types are declared and value is a number', () => {
+    let caught: ODValidatorRulesException | null = null
+    try {
+      ODValidatorRule.applyRule(
+        { children: { sub: { type: 'integer' } } },
+        42,  // number, not object/array
+        'field',
+        {} as ODValidatorErrors,
+        noopProcessChildren,
+      )
+    } catch (e) {
+      caught = e as ODValidatorRulesException
+    }
+    expect(caught).toBeInstanceOf(ODValidatorRulesException)
+  })
+
+  test('does NOT throw when multi-type allows non-object values alongside object', () => {
+    // type: ['object', 'string'] → string value passes type check → checkChildren called
+    // In checkChildren: string is not object/array → else branch → inner condition is false
+    // (because def.type has 'string' which is non-object) → no throw
+    const errors: ODValidatorErrors = {}
+    expect(() => {
+      ODValidatorRule.applyRule(
+        { type: ['object', 'string'] as const, children: { name: { type: 'string' } } },
+        'a string',
+        'val',
+        errors,
+        noopProcessChildren,
+      )
+    }).not.toThrow()
   })
 })

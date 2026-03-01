@@ -48,6 +48,52 @@ describe('input immutability', () => {
     expect(input.val).toBe('42')
     expect(result.val).toBe(42)
   })
+
+  test('parse does not mutate nested input objects when children add defaults', () => {
+    const input = { user: {} }
+    const result = parse(
+      {
+        user: {
+          type: 'object' as const,
+          children: {
+            name: { type: 'string' as const, default: 'Alice' },
+          },
+        },
+      },
+      input,
+      opts,
+    )
+    expect(input.user).toEqual({})
+    expect((result.user as Record<string, unknown>).name).toBe('Alice')
+  })
+})
+
+describe('default cloning', () => {
+  test('object defaults are cloned for each parse call', () => {
+    const schema = {
+      settings: { type: 'object' as const, default: { theme: 'light' } },
+    }
+
+    const first = parse(schema, {}, opts)
+    const firstSettings = first.settings as Record<string, unknown>
+    firstSettings.theme = 'dark'
+
+    const second = parse(schema, {}, opts)
+    expect((second.settings as Record<string, unknown>).theme).toBe('light')
+  })
+
+  test('array defaults are cloned for each parse call', () => {
+    const schema = {
+      tags: { type: 'array' as const, default: ['a'] },
+    }
+
+    const first = parse(schema, {}, opts)
+    const firstTags = first.tags as unknown[]
+    firstTags.push('b')
+
+    const second = parse(schema, {}, opts)
+    expect(second.tags).toEqual(['a'])
+  })
 })
 
 describe('schema immutability', () => {

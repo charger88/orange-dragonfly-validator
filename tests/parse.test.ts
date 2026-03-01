@@ -1,4 +1,5 @@
-import { parse, safeParse, validateSchema, ODValidatorException, ODValidatorRulesException } from '../src/index'
+import { parse, safeParse, validateSchema, ODValidatorException, ODValidatorRulesException, ODValidatorSecurityException } from '../src/index'
+import type { ODValidatorRulesSchema, ODValidatorRuleSchema } from '../src/index'
 
 const opts = { strictMode: false } as const
 
@@ -6,6 +7,12 @@ describe('parse', () => {
   test('parse returns validated data on success', () => {
     const result = parse({ name: { type: 'string' as const } }, { name: 'Alice' }, opts)
     expect(result.name).toBe('Alice')
+  })
+
+  test('parse throws when a rule definition is not an object', () => {
+    expect(() => {
+      parse({ name: true as unknown as ODValidatorRuleSchema }, { name: 'Alice' }, opts)
+    }).toThrow(ODValidatorRulesException)
   })
 
   test('parse throws on validation failure', () => {
@@ -113,6 +120,22 @@ describe('safeParse', () => {
     expect(result.success).toBe(true)
     if (result.success) {
       expect(result.data.name).toBe('Bob')
+    }
+  })
+
+  test('safeParse rejects NaN when finite constraints are present without explicit type', () => {
+    const result = safeParse({ value: { min: 1 } }, { value: NaN }, opts)
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.errors.value[0].code).toBe('TYPE_MISMATCH')
+    }
+  })
+
+  test('safeParse rejects Infinity when finite constraints are present without explicit type', () => {
+    const result = safeParse({ value: { in: [1, 2, 3] } }, { value: Infinity }, opts)
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.errors.value[0].code).toBe('TYPE_MISMATCH')
     }
   })
 })
@@ -301,5 +324,65 @@ describe('validateSchema', () => {
     expect(() => {
       validateSchema({ val: { type: 'invalid' } })
     }).toThrow()
+  })
+
+  test('validateSchema rejects non-object @ options', () => {
+    expect(() => {
+      validateSchema({ '@': true as unknown as Record<string, unknown>, val: { type: ['string'] } })
+    }).toThrow(ODValidatorRulesException)
+  })
+})
+
+describe('safeParse - non-ODValidatorException rethrow (line 53)', () => {
+  test('safeParse rethrows errors that are not ODValidatorException instances', () => {
+    // A transform that throws a plain Error (not ODValidatorException) is rethrown by safeParse
+    const schema = {
+      val: { transform: () => { throw new Error('unexpected internal error') } },
+    } as unknown as ODValidatorRulesSchema
+    expect(() => safeParse(schema, { val: 'test' }, { strictMode: false })).toThrow('unexpected internal error')
+  })
+
+  test('safeParse rethrows security exceptions', () => {
+    const schema = { name: { type: 'string' as const } }
+    const maliciousInput = JSON.parse('{"name":"Alice","__proto__":{"polluted":true}}')
+    expect(() => safeParse(schema, maliciousInput, opts)).toThrow(ODValidatorSecurityException)
+  })
+})
+
+describe('validateSchema - recursive child and @ key handling', () => {
+  // Note: validateSchema validates the raw (non-normalized) schema.
+  // RULES_SCHEMA requires type to be an array, so we use array types here.
+
+  test('validateSchema skips @ meta-key without error (line 70)', () => {
+    expect(() => {
+      validateSchema({ '@': { strict: false }, name: { type: ['string'] } })
+    }).not.toThrow()
+  })
+
+  test('validateSchema recursively validates children schemas (line 73)', () => {
+    expect(() => {
+      validateSchema({
+        user: {
+          type: ['object'],
+          children: {
+            name: { type: ['string'], required: true },
+            age: { type: ['integer'] },
+          },
+        },
+      })
+    }).not.toThrow()
+  })
+
+  test('validateSchema throws for invalid rules inside children', () => {
+    expect(() => {
+      validateSchema({
+        user: {
+          type: ['object'],
+          children: {
+            name: { type: ['totally_invalid_type'] } as unknown as ODValidatorRuleSchema,
+          },
+        },
+      })
+    }).toThrow(ODValidatorRulesException)
   })
 })

@@ -1,4 +1,5 @@
-import { parse, safeParse } from '../src/index'
+import { parse, safeParse, ODValidatorRule } from '../src/index'
+import type { ODValidatorErrors, ODValidatorRuleSchema } from '../src/index'
 
 const opts = { strictMode: false } as const
 
@@ -88,5 +89,26 @@ describe('in with objects throws rules error', () => {
     expect(() => {
       parse({ val: { type: 'object', in: [{}] } }, { val: {} })
     }).toThrow()
+  })
+})
+
+describe('rule.ts - checkInList array value with in:public as array (line 88 inner branch)', () => {
+  test('array value failing in check with in:public as array uses custom allowed list', () => {
+    // valueType = 'array' → element 'x' not in inList ['a','b'] → ARRAY_ELEMENT_NOT_IN_LIST
+    // inPublic = ['alpha'] (truthy, not === true) → inner false branch at line 88
+    const errors: ODValidatorErrors = {}
+    ODValidatorRule.applyRule(
+      {
+        in: ['a', 'b'],
+        'in:public': ['alpha'] as unknown,
+      } as ODValidatorRuleSchema,
+      ['a', 'x'],
+      'field',
+      errors,
+      () => { /* no children */ },
+    )
+    expect(errors.field).toBeDefined()
+    expect(errors.field[0].code).toBe('ARRAY_ELEMENT_NOT_IN_LIST')
+    expect((errors.field[0].params as Record<string, unknown>).allowed).toEqual(['alpha'])
   })
 })
