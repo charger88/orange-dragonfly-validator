@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.2] - 4/18/2026
+
+### Added
+
+- `@types/node` dev dependency was added to support Node.js (v18) type definitions in TypeScript
+
+### Removed
+
+- `package.json` was removed from the repository
+
 ## [1.0.1] - 3/1/2026
 
 ### Added
