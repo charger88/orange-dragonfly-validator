@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.3] - <TBD>
+
+### Added
+
+- `tests/tsconfig.json` added so VSCode resolves Jest globals (`test`, `expect`, etc.) in test files without errors
+
+
 ## [1.0.2] - 4/18/2026
 
 ### Added
